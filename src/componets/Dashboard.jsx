@@ -607,7 +607,7 @@ const Dashboard = () => {
                         >
                           💬 Send Message
                         </button>
-
+{/* 
                         <button
                           onClick={() => openKeyModal(device, "unlock")}
                           title="Send a temporary unlock key to this device"
@@ -622,7 +622,7 @@ const Dashboard = () => {
                           style={{ padding: "6px 12px", borderRadius: "6px", border: "none", background: "#b45309", color: "#fff", cursor: "pointer" }}
                         >
                           🗑️ Send Uninstall Key
-                        </button>
+                        </button> */}
 
                         {role !== 'distCoordinator' && (
                         <button
