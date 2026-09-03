@@ -1,0 +1,19 @@
+/* Global reset */
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+img {
+  display: block; /* removes inline baseline whitespace that adds extra height */
+  max-width: 100%;
+}
