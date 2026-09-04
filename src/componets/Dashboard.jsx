@@ -44,6 +44,7 @@ const Dashboard = () => {
   const [misToDate, setMisToDate] = useState(getTodayForDateInput);
   const [misOperatorId, setMisOperatorId] = useState("");
   const [misOperatorName, setMisOperatorName] = useState("");
+  const [misCoordinatorEmail, setMisCoordinatorEmail] = useState("");
   const [messageDevice, setMessageDevice] = useState(null);
   const [deviceMessage, setDeviceMessage] = useState("");
   const [messageIsImage, setMessageIsImage] = useState(false);
@@ -316,7 +317,7 @@ const Dashboard = () => {
     navigate("/");
   };
 
-  const loadMisReportData = async (fromDate = misFromDate, toDate = misToDate) => {
+  const loadMisReportData = async (fromDate = misFromDate, toDate = misToDate, coordinatorEmail = misCoordinatorEmail) => {
     if (!fromDate || !toDate) {
       setMisRecordsError("Choose both From and To dates.");
       return;
@@ -332,6 +333,7 @@ const Dashboard = () => {
           toDate,
           operatorId: misOperatorId.trim(),
           operatorName: misOperatorName.trim(),
+          coordinatorEmail,
         },
       });
       setMisRecords(response.data.data || []);
@@ -892,6 +894,25 @@ const Dashboard = () => {
                   <label>
                     Operator Name
                     <input type="text" value={misOperatorName} onChange={(event) => setMisOperatorName(event.target.value)} placeholder="Search operator name" style={{ display: "block", marginTop: "5px", padding: "8px" }} />
+                  </label>
+                  <label>
+                    Dist. Coordinator
+                    <select
+                      value={misCoordinatorEmail}
+                      onChange={(event) => {
+                        const coordinatorEmail = event.target.value;
+                        setMisCoordinatorEmail(coordinatorEmail);
+                        loadMisReportData(misFromDate, misToDate, coordinatorEmail);
+                      }}
+                      style={{ display: "block", marginTop: "5px", padding: "8px", minWidth: "190px" }}
+                    >
+                      <option value="">All District Coordinators</option>
+                      {coordinators.map((coordinator) => (
+                        <option key={coordinator._id || coordinator.email} value={coordinator.email}>
+                          {coordinator.name || coordinator.email}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <button onClick={() => loadMisReportData()} disabled={misRecordsLoading} style={{ padding: "9px 16px" }}>
                     {misRecordsLoading ? "Loading..." : "Search"}
