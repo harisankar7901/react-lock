@@ -11,10 +11,6 @@ const Login = () => {
     loginPassword: "",
   });
 
-  const goToRegi = () => {
-    navigate("/register");
-  };
-
       const onLogIn = async () => {
         const formData = {
             email:loginData.loginName,
@@ -117,6 +113,14 @@ const Login = () => {
         </div>
 
         <div className="register-section">
+          <button
+            className="register-button"
+            onClick={() => navigate("/reset-password")}
+          >
+            Reset Password
+          </button>
+
+          {/*
           <span>Don't have an account?</span>
 
           <button
@@ -125,6 +129,7 @@ const Login = () => {
           >
             Create Account
           </button>
+          */}
         </div>
 
       </div>
