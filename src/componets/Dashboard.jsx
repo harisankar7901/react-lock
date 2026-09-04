@@ -2,17 +2,27 @@ import React, { useEffect, useMemo, useState } from "react";
 import api from '../api/api.js';
 import { useNavigate } from "react-router-dom";
 import logo from '../assets/logo.jpeg';
-
+const MAX_DEVICE_ALLOWED = 200;
+const getTodayForDateInput = () => {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  return now.toISOString().slice(0, 10);
+};
 const Dashboard = () => {
   const [devices, setDevices] = useState([]);
+  const [maxDeviceAllowed, setMaxDeviceAllowed] = useState(MAX_DEVICE_ALLOWED);
   const [search, setSearch] = useState("");
+  const [deviceFilter, setDeviceFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
+  const [deletingDeviceId, setDeletingDeviceId] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [coordinators, setCoordinators] = useState([]);
   const navigate = useNavigate();
   const user = sessionStorage.getItem("user");
-  const role = JSON.parse(user).role
+  const loggedInUser = JSON.parse(user || "{}");
+  const role = loggedInUser.role;
+  const loggedInCoordinatorName = loggedInUser.user || loggedInUser.email || "District Coordinator";
   const [showAddCoordinator, setShowAddCoordinator] = useState(false);
   const [coordinatorForm, setCoordinatorForm] = useState({
     name: "",
@@ -23,8 +33,17 @@ const Dashboard = () => {
   const [savingCoordinator, setSavingCoordinator] = useState(false);
   const [showReports, setShowReports] = useState(false);
   const [reports, setReports] = useState([]);
+  const [reportTab, setReportTab] = useState("excel");
   const [reportsLoading, setReportsLoading] = useState(false);
   const [reportsError, setReportsError] = useState("");
+  const [selectedMisReport, setSelectedMisReport] = useState(null);
+  const [misRecords, setMisRecords] = useState([]);
+  const [misRecordsLoading, setMisRecordsLoading] = useState(false);
+  const [misRecordsError, setMisRecordsError] = useState("");
+  const [misFromDate, setMisFromDate] = useState(getTodayForDateInput);
+  const [misToDate, setMisToDate] = useState(getTodayForDateInput);
+  const [misOperatorId, setMisOperatorId] = useState("");
+  const [misOperatorName, setMisOperatorName] = useState("");
   const [messageDevice, setMessageDevice] = useState(null);
   const [deviceMessage, setDeviceMessage] = useState("");
   const [messageIsImage, setMessageIsImage] = useState(false);
@@ -156,7 +175,14 @@ const Dashboard = () => {
   };
 
   const openReportList = async () => {
+    setShowDropdown(false);
+    setReportTab("excel");
     setShowReports(true);
+    setSelectedMisReport(null);
+    const today = getTodayForDateInput();
+    setMisFromDate(today);
+    setMisToDate(today);
+    loadMisReportData(today, today);
     setReportsLoading(true);
     setReportsError("");
 
@@ -171,12 +197,38 @@ const Dashboard = () => {
     }
   };
 
+  const openMisReportData = async (report) => {
+    setSelectedMisReport(report);
+    setMisRecords([]);
+    setMisRecordsError("");
+    setMisRecordsLoading(true);
+
+    try {
+      const response = await api.get(`devices/reports/${report._id}/enrolment-records`);
+      setMisRecords(response.data.data || []);
+    } catch (error) {
+      console.error("Fetch MIS report data error:", error);
+      setMisRecordsError(error.response?.data?.message || "Unable to load MIS report data.");
+    } finally {
+      setMisRecordsLoading(false);
+    }
+  };
+
   const formatFileSize = (size) => {
     if (!Number.isFinite(size)) return "-";
     return size < 1024 * 1024
       ? `${Math.ceil(size / 1024)} KB`
       : `${(size / (1024 * 1024)).toFixed(2)} MB`;
   };
+
+  const displayValue = (value) => value === null || value === undefined || value === "" ? "-" : value;
+
+  const visibleReports = useMemo(() => reports.filter((report) => {
+    if (report.reportType) return report.reportType === reportTab;
+    return reportTab === "excel"
+      ? report.fileName?.toLowerCase().endsWith(".xlsx")
+      : report.fileName?.toLowerCase().endsWith(".zip");
+  }), [reports, reportTab]);
 
   const fetchCoordinators = async () => {
     try {
@@ -245,6 +297,7 @@ const Dashboard = () => {
       setLoading(true);
       const res = await api.get('devices');
       setDevices(res.data.data || []);
+      setMaxDeviceAllowed(res.data.maxDeviceAllowed || MAX_DEVICE_ALLOWED);
     } catch (error) {
       console.error("Fetch devices error:", error);
     } finally {
@@ -261,6 +314,53 @@ const Dashboard = () => {
     }
 
     navigate("/");
+  };
+
+  const loadMisReportData = async (fromDate = misFromDate, toDate = misToDate) => {
+    if (!fromDate || !toDate) {
+      setMisRecordsError("Choose both From and To dates.");
+      return;
+    }
+
+    setMisRecords([]);
+    setMisRecordsError("");
+    setMisRecordsLoading(true);
+    try {
+      const response = await api.get("devices/reports/enrolment-records", {
+        params: {
+          fromDate,
+          toDate,
+          operatorId: misOperatorId.trim(),
+          operatorName: misOperatorName.trim(),
+        },
+      });
+      setMisRecords(response.data.data || []);
+    } catch (error) {
+      console.error("Fetch MIS report range error:", error);
+      setMisRecordsError(error.response?.data?.message || "Unable to load MIS report data.");
+    } finally {
+      setMisRecordsLoading(false);
+    }
+  };
+
+  const handleDeleteDevice = async (device) => {
+    const deviceName = device.laptopName || device.deviceId || "this device";
+    if (!window.confirm(`Delete ${deviceName}? This removes it from the device list.`)) {
+      return;
+    }
+
+    try {
+      setDeletingDeviceId(device._id);
+      await api.delete(`devices/${device._id}`);
+      setDevices((currentDevices) =>
+        currentDevices.filter((currentDevice) => currentDevice._id !== device._id)
+      );
+    } catch (error) {
+      console.error("Delete device error:", error);
+      alert(error.response?.data?.message || "Unable to delete the device.");
+    } finally {
+      setDeletingDeviceId(null);
+    }
   };
   const handleCoordinatorSelect = (e) => {
     const selectedEmail = e.target.value;
@@ -369,18 +469,40 @@ const Dashboard = () => {
     const searchValue = search.toLowerCase();
 
     return devices.filter((device) => {
-      return (
+      const matchesSearch = (
         device.laptopName?.toLowerCase().includes(searchValue) ||
         device.deviceId?.toLowerCase().includes(searchValue) ||
         device.userName?.toLowerCase().includes(searchValue) ||
         device.stationId?.toLowerCase().includes(searchValue) ||
         device.status?.toLowerCase().includes(searchValue) ||
+        device.operatorId?.toLowerCase().includes(searchValue) ||
         device.operatorName?.toLowerCase().includes(searchValue) ||
         device.districtName?.toLowerCase().includes(searchValue) ||
         device.block?.toLowerCase().includes(searchValue)
       );
+
+      if (!matchesSearch) return false;
+
+      const isLocked = device.lock === true || String(device.status).toLowerCase() === "true";
+      if (deviceFilter === "locked") return isLocked;
+      if (deviceFilter === "unlocked") return !isLocked;
+      if (deviceFilter === "online") return device.connectionStatus === "online";
+      if (deviceFilter === "offline") return device.connectionStatus !== "online";
+      if (deviceFilter === "coordinator-assigned") {
+        return Boolean(device.coordinatorEmail || device.distCoordinatorMail || device.distCoordinatorName);
+      }
+      if (deviceFilter.startsWith("coordinator:")) {
+        const selectedCoordinator = deviceFilter.substring("coordinator:".length);
+        return (
+          device.coordinatorEmail === selectedCoordinator ||
+          device.distCoordinatorMail === selectedCoordinator ||
+          device.distCoordinatorName === selectedCoordinator
+        );
+      }
+
+      return true;
     });
-  }, [devices, search]);
+  }, [devices, search, deviceFilter]);
 
   const totalDevices = devices.length;
 
@@ -417,17 +539,22 @@ const Dashboard = () => {
           <p>Manage and monitor registered laptops</p>
         </div>
 
-        <div className="admin-menu" style={{ position: "relative" }}>
-          <div
-            className="admin"
-            onClick={() => setShowDropdown((prev) => !prev)}
-            style={{ cursor: "pointer" }}
-          >
-            Menu ▾
+        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          <div style={{ fontWeight: 600, whiteSpace: "nowrap", color: "#1e3a5f" }}>
+            Devices: {totalDevices} / {maxDeviceAllowed}
           </div>
 
-          {showDropdown && (
+          <div className="admin-menu" style={{ position: "relative" }}>
             <div
+              className="admin"
+              onClick={() => setShowDropdown((prev) => !prev)}
+              style={{ cursor: "pointer" }}
+            >
+              Menu ▾
+            </div>
+
+            {showDropdown && (
+              <div
               className="admin-dropdown"
               style={{
                 position: "absolute",
@@ -457,6 +584,20 @@ const Dashboard = () => {
                 ➕ Add Dist Coordinator
               </button>
               <button
+                onClick={openReportList}
+                style={{
+                  width: "100%",
+                  padding: "10px 14px",
+                  textAlign: "left",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  borderBottom: "1px solid #eee",
+                }}
+              >
+                📄 Report List
+              </button>
+              <button
                 onClick={handleLogout}
                 style={{
                   width: "100%",
@@ -469,8 +610,9 @@ const Dashboard = () => {
               >
                 🚪 Logout
               </button>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -499,14 +641,48 @@ const Dashboard = () => {
       {/* Device List */}
       <div className="device-container">
         <div className="device-toolbar">
-          <input
-            type="text"
-            placeholder="Search laptop, device ID, user, operator, district..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button onClick={openReportList}>Report List</button>
-          <button onClick={fetchDevices}>Refresh</button>
+          <div className="device-filter-controls">
+            <input
+              type="text"
+              placeholder="Search laptop, device ID, user, operator, district..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select
+              value={deviceFilter}
+              onChange={(e) => setDeviceFilter(e.target.value)}
+              aria-label="Filter devices"
+            >
+              <option value="all">All devices</option>
+              <optgroup label="Lock Status">
+                <option value="locked">Locked</option>
+                <option value="unlocked">Unlocked</option>
+              </optgroup>
+              <optgroup label="Connection">
+                <option value="online">Online</option>
+                <option value="offline">Offline</option>
+              </optgroup>
+              <optgroup label="District Coordinator">
+                <option value="coordinator-assigned">Has District Coordinator</option>
+                {coordinators.map((coordinator) => (
+                  <option
+                    key={coordinator._id || coordinator.email || coordinator.name}
+                    value={`coordinator:${coordinator.email || coordinator.name}`}
+                  >
+                    {coordinator.name || coordinator.email}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            {role === "distCoordinator" && (
+              <span style={{ fontWeight: 600, whiteSpace: "nowrap", color: "#1e3a5f" }}>
+                {loggedInCoordinatorName}
+              </span>
+            )}
+            <button onClick={fetchDevices}>Refresh</button>
+          </div>
         </div>
 
         {loading ? (
@@ -517,25 +693,26 @@ const Dashboard = () => {
             <thead>
               <tr>
                 <th>Computer Name</th>
-                <th>Station ID</th>
-                <th>Last Seen</th>
                 {/* <th>Device ID</th> */}
                 {/* <th>User</th> */}
                 <th>Lock Action</th>
                 <th>Lock Status</th>
+                <th>Station ID</th>
                 <th>Operator ID</th>
                 <th>Operator Name</th>
-                <th>Dist. Coordinator</th>
+                {role !== "distCoordinator" && <th>Dist. Coordinator</th>}
                 <th>District Name</th>
                 <th>Block</th>
                 <th>Action</th>
+                <th>Last Seen</th>
+                <th>App Version</th>
               </tr>
             </thead>
 
             <tbody>
               {filteredDevices.length === 0 ? (
                 <tr>
-                  <td colSpan="11" className="no-data">
+                  <td colSpan={role === "distCoordinator" ? 11 : 12} className="no-data">
                     No devices found
                   </td>
                 </tr>
@@ -552,10 +729,6 @@ const Dashboard = () => {
                         💻 {device.laptopName || "Unknown"}
                       </div>
                     </td>
-
-                    <td>{device.stationId || "-"}</td>
-
-                    <td>{formatLastSeen(device.lastSeen)}</td>
 
                     {/* <td>
                       <span className="device-id">{device.deviceId}</span>
@@ -585,9 +758,10 @@ const Dashboard = () => {
                         <span className="status unlocked">🔓 Unlocked</span>
                       )}
                     </td>
+                    <td>{device.stationId || "-"}</td>
                     <td>{device.operatorId || "-"}</td>
                     <td>{device.operatorName || "-"}</td>
-                    <td>{device.distCoordinatorName || "-"}</td>
+                    {role !== "distCoordinator" && <td>{device.distCoordinatorName || "-"}</td>}
                     <td>{device.districtName || "-"}</td>
                     <td>{device.block || "-"}</td>
 
@@ -640,8 +814,27 @@ const Dashboard = () => {
                           ✏️ Edit
                         </button>
                         )}
+                        {role === 'superAdmin' && (
+                          <button
+                            onClick={() => handleDeleteDevice(device)}
+                            disabled={deletingDeviceId === device._id}
+                            title="Delete this device"
+                            style={{
+                              padding: "6px 12px",
+                              borderRadius: "6px",
+                              border: "none",
+                              background: "#dc2626",
+                              color: "#fff",
+                              cursor: deletingDeviceId === device._id ? "wait" : "pointer",
+                            }}
+                          >
+                            {deletingDeviceId === device._id ? "Deleting..." : "🗑️ Delete"}
+                          </button>
+                        )}
                       </div>
                     </td>
+                    <td>{formatLastSeen(device.lastSeen)}</td>
+                    <td>{device.applicationVersion || "-"}</td>
                   </tr>
                 ))
               )}
@@ -654,40 +847,77 @@ const Dashboard = () => {
       {showReports && (
         <div
           className="modal-overlay"
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
-          onClick={() => setShowReports(false)}
+          style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 100 }}
         >
           <div
             className="modal-content"
-            onClick={(event) => event.stopPropagation()}
-            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "900px", maxWidth: "95%", maxHeight: "85vh", overflow: "auto" }}
+            style={{ background: "#fff", padding: "24px", width: "100%", height: "100%", boxSizing: "border-box", display: "flex", flexDirection: "column", overflow: "hidden" }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h2 style={{ marginTop: 0 }}>Uploaded Reports</h2>
+              <h2 style={{ margin: 0 }}>Reports</h2>
               <button onClick={() => setShowReports(false)}>Close</button>
             </div>
 
-            {reportsLoading ? <p>Loading reports...</p> : reportsError ? (
-              <p style={{ color: "#d93025" }}>{reportsError}</p>
-            ) : reports.length === 0 ? <p>No uploaded reports found.</p> : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Computer Name</th><th>File Name</th><th>Size</th><th>Uploaded</th><th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reports.map((report) => (
-                    <tr key={report._id}>
-                      <td>{report.laptopName}</td>
-                      <td>{report.fileName}</td>
-                      <td>{formatFileSize(report.size)}</td>
-                      <td>{new Date(report.createdAt).toLocaleString()}</td>
-                      <td>{report.downloadUrl ? <a href={report.downloadUrl} target="_blank" rel="noreferrer">Download</a> : "-"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ display: "flex", gap: "8px", marginBottom: "18px", borderBottom: "1px solid #e5e7eb" }}>
+              <button
+                onClick={() => setReportTab("excel")}
+                style={{ padding: "9px 14px", border: "none", borderBottom: reportTab === "excel" ? "3px solid #2563eb" : "3px solid transparent", background: "transparent", color: reportTab === "excel" ? "#2563eb" : "#374151", fontWeight: 600, cursor: "pointer" }}
+              >
+                MIS Report
+              </button>
+              <button
+                onClick={() => setReportTab("zip")}
+                style={{ padding: "9px 14px", border: "none", borderBottom: reportTab === "zip" ? "3px solid #2563eb" : "3px solid transparent", background: "transparent", color: reportTab === "zip" ? "#2563eb" : "#374151", fontWeight: 600, cursor: "pointer" }}
+              >
+                Zip
+              </button>
+            </div>
+
+            {reportTab === "excel" ? (
+              <>
+                <div style={{ display: "flex", alignItems: "end", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
+                  <label>
+                    From date
+                    <input type="date" value={misFromDate} max={misToDate || undefined} onChange={(event) => setMisFromDate(event.target.value)} style={{ display: "block", marginTop: "5px", padding: "8px" }} />
+                  </label>
+                  <label>
+                    To date
+                    <input type="date" value={misToDate} min={misFromDate || undefined} onChange={(event) => setMisToDate(event.target.value)} style={{ display: "block", marginTop: "5px", padding: "8px" }} />
+                  </label>
+                  <label>
+                    Operator ID
+                    <input type="text" value={misOperatorId} onChange={(event) => setMisOperatorId(event.target.value)} placeholder="Search operator ID" style={{ display: "block", marginTop: "5px", padding: "8px" }} />
+                  </label>
+                  <label>
+                    Operator Name
+                    <input type="text" value={misOperatorName} onChange={(event) => setMisOperatorName(event.target.value)} placeholder="Search operator name" style={{ display: "block", marginTop: "5px", padding: "8px" }} />
+                  </label>
+                  <button onClick={() => loadMisReportData()} disabled={misRecordsLoading} style={{ padding: "9px 16px" }}>
+                    {misRecordsLoading ? "Loading..." : "Search"}
+                  </button>
+                </div>
+                {misRecordsError ? <p style={{ color: "#d93025" }}>{misRecordsError}</p> : misRecordsLoading ? <p>Loading MIS report data...</p> : misRecords.length === 0 ? <p>No MIS data found for the selected date range.</p> : (
+                  <div style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
+                    <table style={{ whiteSpace: "nowrap" }}>
+                      <thead><tr>
+                        <th>Sl#</th><th>Date</th><th>Station ID</th><th>Operator ID</th><th>SI Name</th><th>Operator Name</th><th>District</th><th>Block/ULB/ICDS</th><th>Station Type</th><th>Operator Type</th><th>Total</th><th>New</th><th>MBU 5-7 & 15-17</th><th>MBU 7-15 & Above 17</th><th>Demographic Update</th><th>Biometric Update</th><th>Total Collection</th>
+                      </tr></thead>
+                      <tbody>{misRecords.map((record) => <tr key={record._id}>
+                        <td>{displayValue(record.serialNumber)}</td><td>{displayValue(record.reportDate)}</td><td>{displayValue(record.stationId)}</td><td>{displayValue(record.operatorId)}</td><td>{displayValue(record.siName)}</td><td>{displayValue(record.operatorName)}</td><td>{displayValue(record.district)}</td><td>{displayValue(record.blockUlbIcdsName)}</td><td>{displayValue(record.stationType)}</td><td>{displayValue(record.operatorType)}</td><td>{displayValue(record.total)}</td><td>{displayValue(record.newEnrolments)}</td><td>{displayValue(record.mbuAge5To7And15To17)}</td><td>{displayValue(record.mbuAge7To15AndAbove17)}</td><td>{displayValue(record.demographicUpdate)}</td><td>{displayValue(record.biometricUpdate)}</td><td>{displayValue(record.totalCollectionFromResident)}</td>
+                      </tr>)}</tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            ) : reportsLoading ? <p>Loading zip files...</p> : reportsError ? <p style={{ color: "#d93025" }}>{reportsError}</p> : visibleReports.length === 0 ? <p>No uploaded zip files found.</p> : (
+              <div style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
+                <table>
+                  <thead><tr><th>File Name</th><th>Size</th><th>Uploaded</th><th>Action</th></tr></thead>
+                  <tbody>{visibleReports.map((report) => (
+                    <tr key={report._id}><td>{report.fileName}</td><td>{formatFileSize(report.size)}</td><td>{new Date(report.createdAt).toLocaleString()}</td><td>{report.downloadUrl ? <a href={report.downloadUrl} target="_blank" rel="noreferrer">Download</a> : "-"}</td></tr>
+                  ))}</tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>

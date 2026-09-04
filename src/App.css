@@ -75,8 +75,15 @@
 .device-toolbar {
   display: flex;
   justify-content: space-between;
+  gap: 12px;
   margin-bottom: 20px;
   flex-shrink: 0;
+}
+
+.device-filter-controls {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
 }
 
 .device-table-scroll {
@@ -96,6 +103,14 @@
   padding: 12px;
   border: 1px solid #ddd;
   border-radius: 7px;
+}
+
+.device-toolbar select {
+  min-width: 170px;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 7px;
+  background: #fff;
 }
 
 .device-toolbar button {

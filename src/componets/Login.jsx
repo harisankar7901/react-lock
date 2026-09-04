@@ -23,7 +23,10 @@ const Login = () => {
             )
             sessionStorage.setItem('token', res.data.token);
             sessionStorage.setItem('user', JSON.stringify(res.data.user));
-            if(res.data.user.role =='admin' || res.data.user.role =='distCoordinator'){
+            if(res.data.user.role =='admin' ||
+               res.data.user.role =='distCoordinator' ||
+               res.data.user.role =='superAdmin'
+              ){
                 navigate('/dash');
             }else{
                  navigate('/newUser');
