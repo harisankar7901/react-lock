@@ -24,6 +24,10 @@ const Dashboard = () => {
   const role = loggedInUser.role;
   const loggedInCoordinatorName = loggedInUser.user || loggedInUser.email || "District Coordinator";
   const [showAddCoordinator, setShowAddCoordinator] = useState(false);
+  const [showDeviceRegistration, setShowDeviceRegistration] = useState(false);
+  const [deviceRegistrationForm, setDeviceRegistrationForm] = useState({ deviceId: "", laptopName: "" });
+  const [registeringDevice, setRegisteringDevice] = useState(false);
+  const [deviceRegistrationError, setDeviceRegistrationError] = useState("");
   const [coordinatorForm, setCoordinatorForm] = useState({
     name: "",
     email: "",
@@ -253,6 +257,47 @@ const Dashboard = () => {
 
   const closeAddCoordinatorModal = () => {
     setShowAddCoordinator(false);
+  };
+
+  const openDeviceRegistrationModal = () => {
+    setDeviceRegistrationForm({ deviceId: "", laptopName: "" });
+    setDeviceRegistrationError("");
+    setShowDeviceRegistration(true);
+    setShowDropdown(false);
+  };
+
+  const closeDeviceRegistrationModal = () => {
+    if (!registeringDevice) setShowDeviceRegistration(false);
+  };
+
+  const registerDeviceManually = async () => {
+    const deviceId = deviceRegistrationForm.deviceId.trim();
+    const laptopName = deviceRegistrationForm.laptopName.trim();
+    if (!deviceId || !laptopName) {
+      setDeviceRegistrationError("Device ID and laptop name are required.");
+      return;
+    }
+
+    try {
+      setRegisteringDevice(true);
+      setDeviceRegistrationError("");
+      // The existing app registration endpoint expects these legacy field names.
+      // Supply the computer name in both fields so it displays correctly for
+      // manually created records as well as app-created records.
+      await api.post("devices/register", {
+        deviceId,
+        laptopName,
+        userName: laptopName,
+        status: "false",
+      });
+      await fetchDevices();
+      setShowDeviceRegistration(false);
+      alert("Device registered successfully.");
+    } catch (error) {
+      setDeviceRegistrationError(error.response?.data?.message || "Unable to register the device.");
+    } finally {
+      setRegisteringDevice(false);
+    }
   };
 
   const handleAddCoordinator = async () => {
@@ -585,6 +630,22 @@ const Dashboard = () => {
               >
                 ➕ Add Dist Coordinator
               </button>
+              {role === "superAdmin" && (
+                <button
+                  onClick={openDeviceRegistrationModal}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    textAlign: "left",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    borderBottom: "1px solid #eee",
+                  }}
+                >
+                  💻 Device Registration
+                </button>
+              )}
               <button
                 onClick={openReportList}
                 style={{
@@ -1312,6 +1373,49 @@ const Dashboard = () => {
                 style={{ padding: "8px 16px", borderRadius: "6px", border: "none", background: "#2563eb", color: "#fff", cursor: "pointer" }}
               >
                 {savingCoordinator ? "Creating..." : "Create Coordinator"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeviceRegistration && (
+        <div
+          className="modal-overlay"
+          onClick={closeDeviceRegistrationModal}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "400px", maxWidth: "90%" }}
+          >
+            <h2 style={{ marginTop: 0 }}>Device Registration</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <label>
+                Device ID
+                <input
+                  type="text"
+                  value={deviceRegistrationForm.deviceId}
+                  onChange={(event) => setDeviceRegistrationForm((current) => ({ ...current, deviceId: event.target.value }))}
+                  style={{ width: "100%", padding: "8px", marginTop: "4px" }}
+                />
+              </label>
+              <label>
+                Laptop Name
+                <input
+                  type="text"
+                  value={deviceRegistrationForm.laptopName}
+                  onChange={(event) => setDeviceRegistrationForm((current) => ({ ...current, laptopName: event.target.value }))}
+                  style={{ width: "100%", padding: "8px", marginTop: "4px" }}
+                />
+              </label>
+              {deviceRegistrationError && <div style={{ color: "#dc2626", fontSize: "14px" }}>{deviceRegistrationError}</div>}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
+              <button onClick={closeDeviceRegistrationModal} disabled={registeringDevice} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}>Cancel</button>
+              <button onClick={registerDeviceManually} disabled={registeringDevice} style={{ padding: "8px 16px", borderRadius: "6px", border: "none", background: "#2563eb", color: "#fff", cursor: "pointer" }}>
+                {registeringDevice ? "Registering..." : "Register Device"}
               </button>
             </div>
           </div>
