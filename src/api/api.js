@@ -3,8 +3,8 @@ import axios from 'axios';
 const api = axios.create({
     // baseURL: 'http://localhost:5000/api/',
 	  // baseURL:'http://3.108.136.104:5000/api'
-    // baseURL: 'http://sankarworld.online/api'
-    baseURL:'http://187.53.133.136/api/'
+    baseURL: 'http://sankarworld.online/api'
+    // baseURL:'http://187.53.133.136/api/'
 });
 
 // Attach token to every outgoing request

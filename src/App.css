@@ -237,3 +237,84 @@ td small {
   padding: 50px;
   text-align: center;
 }
+
+/* MIS report table */
+.mis-report-table-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid #dbe5f1;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(30, 58, 95, 0.08);
+}
+
+.mis-report-table {
+  min-width: 1450px;
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.mis-report-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 13px 14px;
+  background: linear-gradient(135deg, #123b73, #2563a7);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  border: 0;
+}
+
+.mis-report-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e8eef6;
+  color: #243447;
+}
+
+.mis-report-table tbody tr:nth-child(even) {
+  background: #f8fbff;
+}
+
+.mis-report-table tbody tr:hover {
+  background: #eaf3ff;
+}
+
+.mis-report-table th:first-child,
+.mis-report-table td:first-child {
+  text-align: center;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.mis-report-table th:nth-child(n + 10),
+.mis-report-table td:nth-child(n + 10) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mis-report-table tfoot td {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  padding: 14px;
+  background: #dcecff;
+  color: #123b73;
+  border-top: 2px solid #2563a7;
+  font-weight: 800;
+  box-shadow: 0 -5px 12px rgba(30, 58, 95, 0.08);
+}
+
+.mis-report-table tfoot td:first-child {
+  text-align: right;
+  color: #123b73;
+}
+
+.mis-report-table tfoot .mis-total-cell {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

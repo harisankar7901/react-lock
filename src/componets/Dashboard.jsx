@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import api from '../api/api.js';
 import { useNavigate } from "react-router-dom";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 import logo from '../assets/logo.jpeg';
 const MAX_DEVICE_ALLOWED = 200;
 const getTodayForDateInput = () => {
@@ -22,6 +24,8 @@ const Dashboard = () => {
   const user = sessionStorage.getItem("user");
   const loggedInUser = JSON.parse(user || "{}");
   const role = loggedInUser.role;
+  const isDistrictCoordinator = role === "distCoordinator";
+  const loggedInCoordinatorEmail = loggedInUser.email || "";
   const loggedInCoordinatorName = loggedInUser.user || loggedInUser.email || "District Coordinator";
   const [showAddCoordinator, setShowAddCoordinator] = useState(false);
   const [showDeviceRegistration, setShowDeviceRegistration] = useState(false);
@@ -48,7 +52,14 @@ const Dashboard = () => {
   const [misToDate, setMisToDate] = useState(getTodayForDateInput);
   const [misOperatorId, setMisOperatorId] = useState("");
   const [misOperatorName, setMisOperatorName] = useState("");
-  const [misCoordinatorEmail, setMisCoordinatorEmail] = useState("");
+  const [misCoordinatorEmail, setMisCoordinatorEmail] = useState(
+    () => isDistrictCoordinator ? loggedInCoordinatorEmail : ""
+  );
+  const [missingMisOperators, setMissingMisOperators] = useState([]);
+  const [missingMisDate, setMissingMisDate] = useState("");
+  const [missingMisLoading, setMissingMisLoading] = useState(false);
+  const [missingMisError, setMissingMisError] = useState("");
+  const [showMissingMisModal, setShowMissingMisModal] = useState(false);
   const [messageDevice, setMessageDevice] = useState(null);
   const [deviceMessage, setDeviceMessage] = useState("");
   const [messageIsImage, setMessageIsImage] = useState(false);
@@ -228,6 +239,102 @@ const Dashboard = () => {
 
   const displayValue = (value) => value === null || value === undefined || value === "" ? "-" : value;
 
+  const misTotals = useMemo(() => {
+    const totalFields = [
+      "total",
+      "newEnrolments",
+      "mbuAge5To7And15To17",
+      "mbuAge7To15AndAbove17",
+      "demographicUpdate",
+      "biometricUpdate",
+      "totalCollectionFromResident"
+    ];
+
+    return misRecords.reduce((totals, record) => {
+      totalFields.forEach((field) => {
+        const value = Number(record[field]);
+        if (Number.isFinite(value)) totals[field] += value;
+      });
+      return totals;
+    }, Object.fromEntries(totalFields.map((field) => [field, 0])));
+  }, [misRecords]);
+
+  const downloadMisReportPdf = () => {
+    if (!misRecords.length) {
+      alert("Search for MIS report data before downloading a PDF.");
+      return;
+    }
+
+    const headers = [
+      "Sl#", "Date", "Station ID", "Operator ID", "Operator Name",
+      "District", "Block/ULB/ICDS", "Station Type", "Operator Type",
+      "Total", "New", "MBU 5-7 & 15-17", "MBU 7-15 & Above 17",
+      "Demographic Update", "Biometric Update", "Total Collection"
+    ];
+    const reportRows = misRecords.map((record, index) => [
+      index + 1,
+      displayValue(record.reportDate),
+      displayValue(record.stationId),
+      displayValue(record.operatorId),
+      displayValue(record.operatorName),
+      displayValue(record.district),
+      displayValue(record.blockUlbIcdsName),
+      displayValue(record.stationType),
+      displayValue(record.operatorType),
+      displayValue(record.total),
+      displayValue(record.newEnrolments),
+      displayValue(record.mbuAge5To7And15To17),
+      displayValue(record.mbuAge7To15AndAbove17),
+      displayValue(record.demographicUpdate),
+      displayValue(record.biometricUpdate),
+      displayValue(record.totalCollectionFromResident)
+    ]);
+
+    const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a3" });
+    pdf.setFontSize(17);
+    pdf.setTextColor(18, 59, 115);
+    pdf.text("MIS Report", 40, 42);
+    pdf.setFontSize(9);
+    pdf.setTextColor(71, 85, 105);
+    pdf.text(`Date range: ${misFromDate} to ${misToDate}   |   Records: ${misRecords.length}`, 40, 60);
+
+    autoTable(pdf, {
+      startY: 76,
+      head: [headers],
+      body: reportRows,
+      foot: [["", "", "", "", "", "", "", "", "Cumulative Total", misTotals.total, misTotals.newEnrolments, misTotals.mbuAge5To7And15To17, misTotals.mbuAge7To15AndAbove17, misTotals.demographicUpdate, misTotals.biometricUpdate, misTotals.totalCollectionFromResident]],
+      theme: "grid",
+      styles: { fontSize: 6.4, cellPadding: 4, overflow: "linebreak" },
+      headStyles: { fillColor: [18, 59, 115], textColor: 255, fontStyle: "bold", halign: "center" },
+      footStyles: { fillColor: [220, 236, 255], textColor: [18, 59, 115], fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: 26, halign: "center" },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 48 },
+        3: { cellWidth: 56 },
+        4: { cellWidth: 76 },
+        5: { cellWidth: 57 },
+        6: { cellWidth: 82 },
+        7: { cellWidth: 48 },
+        8: { cellWidth: 52 },
+        9: { cellWidth: 38, halign: "right" },
+        10: { cellWidth: 34, halign: "right" },
+        11: { cellWidth: 58, halign: "right" },
+        12: { cellWidth: 65, halign: "right" },
+        13: { cellWidth: 62, halign: "right" },
+        14: { cellWidth: 54, halign: "right" },
+        15: { cellWidth: 58, halign: "right" }
+      },
+      didParseCell: ({ section, column, cell }) => {
+        if ((section === "body" || section === "foot") && column.index >= 9) {
+          cell.styles.halign = "right";
+        }
+      }
+    });
+
+    pdf.save(`MIS-Report_${misFromDate}_to_${misToDate}.pdf`);
+  };
+
   const visibleReports = useMemo(() => reports.filter((report) => {
     if (report.reportType) return report.reportType === reportTab;
     return reportTab === "excel"
@@ -387,6 +494,26 @@ const Dashboard = () => {
       setMisRecordsError(error.response?.data?.message || "Unable to load MIS report data.");
     } finally {
       setMisRecordsLoading(false);
+    }
+  };
+
+  const loadMissingTodayMisReports = async (date = getTodayForDateInput()) => {
+    setMissingMisOperators([]);
+    setMissingMisError("");
+    setShowMissingMisModal(false);
+    setMissingMisLoading(true);
+    try {
+      const response = await api.get("devices/reports/missing-enrolment-records", {
+        params: { date }
+      });
+      setMissingMisOperators(response.data.data || []);
+      setMissingMisDate(response.data.date || getTodayForDateInput());
+      setShowMissingMisModal(true);
+    } catch (error) {
+      console.error("Fetch missing MIS reports error:", error);
+      setMissingMisError(error.response?.data?.message || "Unable to load missing MIS reports.");
+    } finally {
+      setMissingMisLoading(false);
     }
   };
 
@@ -960,14 +1087,15 @@ const Dashboard = () => {
                     Dist. Coordinator
                     <select
                       value={misCoordinatorEmail}
+                      disabled={isDistrictCoordinator}
                       onChange={(event) => {
                         const coordinatorEmail = event.target.value;
                         setMisCoordinatorEmail(coordinatorEmail);
                         loadMisReportData(misFromDate, misToDate, coordinatorEmail);
                       }}
-                      style={{ display: "block", marginTop: "5px", padding: "8px", minWidth: "190px" }}
+                      style={{ display: "block", marginTop: "5px", padding: "8px", minWidth: "190px", background: isDistrictCoordinator ? "#f3f4f6" : "#fff", cursor: isDistrictCoordinator ? "not-allowed" : "pointer" }}
                     >
-                      <option value="">All District Coordinators</option>
+                      {!isDistrictCoordinator && <option value="">All District Coordinators</option>}
                       {coordinators.map((coordinator) => (
                         <option key={coordinator._id || coordinator.email} value={coordinator.email}>
                           {coordinator.name || coordinator.email}
@@ -978,16 +1106,29 @@ const Dashboard = () => {
                   <button onClick={() => loadMisReportData()} disabled={misRecordsLoading} style={{ padding: "9px 16px" }}>
                     {misRecordsLoading ? "Loading..." : "Search"}
                   </button>
+                  <button onClick={downloadMisReportPdf} disabled={!misRecords.length || misRecordsLoading} style={{ padding: "9px 16px", background: "#166534", color: "#fff", border: "none", borderRadius: "5px", cursor: !misRecords.length || misRecordsLoading ? "not-allowed" : "pointer", opacity: !misRecords.length || misRecordsLoading ? 0.6 : 1 }}>
+                    ⬇ Download PDF
+                  </button>
+                  <button onClick={() => loadMissingTodayMisReports()} disabled={missingMisLoading} style={{ padding: "9px 16px", marginLeft: "auto", background: "#b45309", color: "#fff", border: "none", borderRadius: "5px", cursor: missingMisLoading ? "wait" : "pointer" }}>
+                    {missingMisLoading ? "Loading..." : "Missing Today’s MIS Reports"}
+                  </button>
                 </div>
+                {missingMisError && <p style={{ color: "#d93025" }}>{missingMisError}</p>}
                 {misRecordsError ? <p style={{ color: "#d93025" }}>{misRecordsError}</p> : misRecordsLoading ? <p>Loading MIS report data...</p> : misRecords.length === 0 ? <p>No MIS data found for the selected date range.</p> : (
-                  <div style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
-                    <table style={{ whiteSpace: "nowrap" }}>
+                  <div className="mis-report-table-scroll">
+                    <table className="mis-report-table">
                       <thead><tr>
-                        <th>Sl#</th><th>Date</th><th>Station ID</th><th>Operator ID</th><th>SI Name</th><th>Operator Name</th><th>District</th><th>Block/ULB/ICDS</th><th>Station Type</th><th>Operator Type</th><th>Total</th><th>New</th><th>MBU 5-7 & 15-17</th><th>MBU 7-15 & Above 17</th><th>Demographic Update</th><th>Biometric Update</th><th>Total Collection</th>
+                        <th>Sl#</th><th>Date</th><th>Station ID</th><th>Operator ID</th><th>Operator Name</th><th>District</th><th>Block/ULB/ICDS</th><th>Station Type</th><th>Operator Type</th><th>Total</th><th>New</th><th>MBU 5-7 & 15-17</th><th>MBU 7-15 & Above 17</th><th>Demographic Update</th><th>Biometric Update</th><th>Total Collection</th>
                       </tr></thead>
-                      <tbody>{misRecords.map((record) => <tr key={record._id}>
-                        <td>{displayValue(record.serialNumber)}</td><td>{displayValue(record.reportDate)}</td><td>{displayValue(record.stationId)}</td><td>{displayValue(record.operatorId)}</td><td>{displayValue(record.siName)}</td><td>{displayValue(record.operatorName)}</td><td>{displayValue(record.district)}</td><td>{displayValue(record.blockUlbIcdsName)}</td><td>{displayValue(record.stationType)}</td><td>{displayValue(record.operatorType)}</td><td>{displayValue(record.total)}</td><td>{displayValue(record.newEnrolments)}</td><td>{displayValue(record.mbuAge5To7And15To17)}</td><td>{displayValue(record.mbuAge7To15AndAbove17)}</td><td>{displayValue(record.demographicUpdate)}</td><td>{displayValue(record.biometricUpdate)}</td><td>{displayValue(record.totalCollectionFromResident)}</td>
+                      <tbody>{misRecords.map((record, index) => <tr key={record._id}>
+                        <td>{index + 1}</td><td>{displayValue(record.reportDate)}</td><td>{displayValue(record.stationId)}</td><td>{displayValue(record.operatorId)}</td><td>{displayValue(record.operatorName)}</td><td>{displayValue(record.district)}</td><td>{displayValue(record.blockUlbIcdsName)}</td><td>{displayValue(record.stationType)}</td><td>{displayValue(record.operatorType)}</td><td>{displayValue(record.total)}</td><td>{displayValue(record.newEnrolments)}</td><td>{displayValue(record.mbuAge5To7And15To17)}</td><td>{displayValue(record.mbuAge7To15AndAbove17)}</td><td>{displayValue(record.demographicUpdate)}</td><td>{displayValue(record.biometricUpdate)}</td><td>{displayValue(record.totalCollectionFromResident)}</td>
                       </tr>)}</tbody>
+                      <tfoot>
+                        <tr>
+                          <td colSpan="9">Cumulative Total</td>
+                          <td className="mis-total-cell">{misTotals.total}</td><td className="mis-total-cell">{misTotals.newEnrolments}</td><td className="mis-total-cell">{misTotals.mbuAge5To7And15To17}</td><td className="mis-total-cell">{misTotals.mbuAge7To15AndAbove17}</td><td className="mis-total-cell">{misTotals.demographicUpdate}</td><td className="mis-total-cell">{misTotals.biometricUpdate}</td><td className="mis-total-cell">{misTotals.totalCollectionFromResident}</td>
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
                 )}
@@ -998,6 +1139,56 @@ const Dashboard = () => {
                   <thead><tr><th>File Name</th><th>Size</th><th>Uploaded</th><th>Action</th></tr></thead>
                   <tbody>{visibleReports.map((report) => (
                     <tr key={report._id}><td>{report.fileName}</td><td>{formatFileSize(report.size)}</td><td>{new Date(report.createdAt).toLocaleString()}</td><td>{report.downloadUrl ? <a href={report.downloadUrl} target="_blank" rel="noreferrer">Download</a> : "-"}</td></tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showMissingMisModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowMissingMisModal(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "620px", maxWidth: "90%", maxHeight: "80vh", display: "flex", flexDirection: "column" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+              <div>
+                <h2 style={{ margin: 0 }}>Operators without MIS Report</h2>
+              </div>
+              <button onClick={() => setShowMissingMisModal(false)}>Close</button>
+            </div>
+            <div style={{ display: "flex", alignItems: "end", gap: "10px", marginTop: "16px" }}>
+              <label>
+                Report date
+                <input
+                  type="date"
+                  value={missingMisDate}
+                  max={getTodayForDateInput()}
+                  onChange={(event) => setMissingMisDate(event.target.value)}
+                  style={{ display: "block", marginTop: "5px", padding: "8px" }}
+                />
+              </label>
+              <button
+                onClick={() => loadMissingTodayMisReports(missingMisDate)}
+                disabled={!missingMisDate || missingMisLoading}
+                style={{ padding: "9px 16px" }}
+              >
+                {missingMisLoading ? "Loading..." : "Show Operators"}
+              </button>
+            </div>
+            {missingMisOperators.length === 0 ? <p>All assigned operators have uploaded today’s MIS report.</p> : (
+              <div style={{ overflow: "auto", marginTop: "16px" }}>
+                <table style={{ width: "100%" }}>
+                  <thead><tr><th>Sl#</th><th>Operator ID</th><th>Operator Name</th></tr></thead>
+                  <tbody>{missingMisOperators.map((operator, index) => (
+                    <tr key={operator.operatorId}><td>{index + 1}</td><td>{operator.operatorId}</td><td>{displayValue(operator.operatorName)}</td></tr>
                   ))}</tbody>
                 </table>
               </div>
