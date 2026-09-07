@@ -1699,7 +1699,12 @@ const Dashboard = () => {
               type="file"
               accept=".msi,application/x-msi"
               onChange={(event) => {
-                setInstallerFile(event.target.files?.[0] || null);
+                const selectedFile = event.target.files?.[0] || null;
+                setInstallerFile(selectedFile);
+                if (selectedFile) {
+                  const buildNumberMatch = selectedFile.name.match(/(?:-|_)(\d+)\.msi$/i);
+                  if (buildNumberMatch) setInstallerVersion(`1.0.${buildNumberMatch[1]}`);
+                }
                 setInstallerUploadError("");
                 setInstallerUploadSuccess("");
               }}
