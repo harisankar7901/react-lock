@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import api from '../api/api.js';
+import ZipEnrolmentReports from './ZipEnrolmentReports.jsx';
 import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -29,6 +30,12 @@ const Dashboard = () => {
   const loggedInCoordinatorName = loggedInUser.user || loggedInUser.email || "District Coordinator";
   const [showAddCoordinator, setShowAddCoordinator] = useState(false);
   const [showDeviceRegistration, setShowDeviceRegistration] = useState(false);
+  const [showInstallerUpload, setShowInstallerUpload] = useState(false);
+  const [installerFile, setInstallerFile] = useState(null);
+  const [installerVersion, setInstallerVersion] = useState("");
+  const [installerUploadError, setInstallerUploadError] = useState("");
+  const [installerUploadSuccess, setInstallerUploadSuccess] = useState("");
+  const [uploadingInstaller, setUploadingInstaller] = useState(false);
   const [deviceRegistrationForm, setDeviceRegistrationForm] = useState({ deviceId: "", laptopName: "" });
   const [registeringDevice, setRegisteringDevice] = useState(false);
   const [deviceRegistrationError, setDeviceRegistrationError] = useState("");
@@ -375,6 +382,48 @@ const Dashboard = () => {
 
   const closeDeviceRegistrationModal = () => {
     if (!registeringDevice) setShowDeviceRegistration(false);
+  };
+
+  const openInstallerUploadModal = () => {
+    setInstallerFile(null);
+    setInstallerVersion("");
+    setInstallerUploadError("");
+    setInstallerUploadSuccess("");
+    setShowInstallerUpload(true);
+    setShowDropdown(false);
+  };
+
+  const closeInstallerUploadModal = () => {
+    if (!uploadingInstaller) setShowInstallerUpload(false);
+  };
+
+  const uploadInstaller = async () => {
+    if (!installerFile) {
+      setInstallerUploadError("Select an MSI installer file first.");
+      return;
+    }
+
+    if (!/^\d+\.\d+\.\d+$/.test(installerVersion.trim())) {
+      setInstallerUploadError("Enter the installer version in the format 1.0.27.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("version", installerVersion.trim());
+    formData.append("file", installerFile);
+    setInstallerUploadError("");
+    setInstallerUploadSuccess("");
+    setUploadingInstaller(true);
+    try {
+      const response = await api.post("devices/updates", formData);
+      setInstallerUploadSuccess(response.data.message || "Installer uploaded successfully.");
+      setInstallerFile(null);
+    } catch (error) {
+      console.error("Installer upload error:", error);
+      setInstallerUploadError(error.response?.data?.message || "Unable to upload the installer.");
+    } finally {
+      setUploadingInstaller(false);
+    }
   };
 
   const registerDeviceManually = async () => {
@@ -773,6 +822,22 @@ const Dashboard = () => {
                   💻 Device Registration
                 </button>
               )}
+              {role === "admin" && (
+                <button
+                  onClick={openInstallerUploadModal}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    textAlign: "left",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    borderBottom: "1px solid #eee",
+                  }}
+                >
+                  ⬆️ Install New Version
+                </button>
+              )}
               <button
                 onClick={openReportList}
                 style={{
@@ -1133,15 +1198,8 @@ const Dashboard = () => {
                   </div>
                 )}
               </>
-            ) : reportsLoading ? <p>Loading zip files...</p> : reportsError ? <p style={{ color: "#d93025" }}>{reportsError}</p> : visibleReports.length === 0 ? <p>No uploaded zip files found.</p> : (
-              <div style={{ overflow: "auto", flex: 1, minHeight: 0 }}>
-                <table>
-                  <thead><tr><th>File Name</th><th>Size</th><th>Uploaded</th><th>Action</th></tr></thead>
-                  <tbody>{visibleReports.map((report) => (
-                    <tr key={report._id}><td>{report.fileName}</td><td>{formatFileSize(report.size)}</td><td>{new Date(report.createdAt).toLocaleString()}</td><td>{report.downloadUrl ? <a href={report.downloadUrl} target="_blank" rel="noreferrer">Download</a> : "-"}</td></tr>
-                  ))}</tbody>
-                </table>
-              </div>
+            ) : (
+              <ZipEnrolmentReports reports={visibleReports} loading={reportsLoading} error={reportsError} formatFileSize={formatFileSize} />
             )}
           </div>
         </div>
@@ -1607,6 +1665,54 @@ const Dashboard = () => {
               <button onClick={closeDeviceRegistrationModal} disabled={registeringDevice} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}>Cancel</button>
               <button onClick={registerDeviceManually} disabled={registeringDevice} style={{ padding: "8px 16px", borderRadius: "6px", border: "none", background: "#2563eb", color: "#fff", cursor: "pointer" }}>
                 {registeringDevice ? "Registering..." : "Register Device"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showInstallerUpload && (
+        <div
+          className="modal-overlay"
+          onClick={closeInstallerUploadModal}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "440px", maxWidth: "90%" }}
+          >
+            <h2 style={{ marginTop: 0 }}>Install New Version</h2>
+            <p style={{ color: "#4b5563" }}>Upload the new LockDevices MSI installer. It will be saved on this server for the future automatic-update service.</p>
+            <label style={{ display: "block", fontWeight: 600 }}>
+              Installer version
+              <input
+                type="text"
+                value={installerVersion}
+                onChange={(event) => setInstallerVersion(event.target.value)}
+                placeholder="Example: 1.0.27"
+                disabled={uploadingInstaller}
+                style={{ display: "block", width: "100%", boxSizing: "border-box", marginTop: "6px", padding: "8px" }}
+              />
+            </label>
+            <input
+              type="file"
+              accept=".msi,application/x-msi"
+              onChange={(event) => {
+                setInstallerFile(event.target.files?.[0] || null);
+                setInstallerUploadError("");
+                setInstallerUploadSuccess("");
+              }}
+              disabled={uploadingInstaller}
+              style={{ width: "100%", margin: "12px 0" }}
+            />
+            {installerFile && <p style={{ fontSize: "13px" }}>Selected: {installerFile.name}</p>}
+            {installerUploadError && <p style={{ color: "#d93025" }}>{installerUploadError}</p>}
+            {installerUploadSuccess && <p style={{ color: "#18864b" }}>{installerUploadSuccess}</p>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
+              <button onClick={closeInstallerUploadModal} disabled={uploadingInstaller}>Cancel</button>
+              <button onClick={uploadInstaller} disabled={!installerFile || !installerVersion.trim() || uploadingInstaller} style={{ background: "#2563eb", color: "#fff", border: "none", borderRadius: "5px", padding: "8px 14px", cursor: uploadingInstaller ? "wait" : "pointer" }}>
+                {uploadingInstaller ? "Uploading..." : "Upload MSI"}
               </button>
             </div>
           </div>
