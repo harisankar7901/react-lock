@@ -36,6 +36,7 @@ const Dashboard = () => {
   const [installerUploadError, setInstallerUploadError] = useState("");
   const [installerUploadSuccess, setInstallerUploadSuccess] = useState("");
   const [uploadingInstaller, setUploadingInstaller] = useState(false);
+  const [installerUploadProgress, setInstallerUploadProgress] = useState(0);
   const [deviceRegistrationForm, setDeviceRegistrationForm] = useState({ deviceId: "", laptopName: "" });
   const [registeringDevice, setRegisteringDevice] = useState(false);
   const [deviceRegistrationError, setDeviceRegistrationError] = useState("");
@@ -389,6 +390,7 @@ const Dashboard = () => {
     setInstallerVersion("");
     setInstallerUploadError("");
     setInstallerUploadSuccess("");
+    setInstallerUploadProgress(0);
     setShowInstallerUpload(true);
     setShowDropdown(false);
   };
@@ -413,14 +415,24 @@ const Dashboard = () => {
     formData.append("file", installerFile);
     setInstallerUploadError("");
     setInstallerUploadSuccess("");
+    setInstallerUploadProgress(0);
     setUploadingInstaller(true);
     try {
-      const response = await api.post("devices/updates", formData);
+      const response = await api.post("devices/updates", formData, {
+        timeout: 20 * 60 * 1000,
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            setInstallerUploadProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
+          }
+        }
+      });
       setInstallerUploadSuccess(response.data.message || "Installer uploaded successfully.");
       setInstallerFile(null);
     } catch (error) {
       console.error("Installer upload error:", error);
-      setInstallerUploadError(error.response?.data?.message || "Unable to upload the installer.");
+      const status = error.response?.status ? ` (HTTP ${error.response.status})` : "";
+      const details = error.response?.data?.message || error.message || "Unable to upload the installer.";
+      setInstallerUploadError(`${details}${status}`);
     } finally {
       setUploadingInstaller(false);
     }
@@ -1712,6 +1724,10 @@ const Dashboard = () => {
               style={{ width: "100%", margin: "12px 0" }}
             />
             {installerFile && <p style={{ fontSize: "13px" }}>Selected: {installerFile.name}</p>}
+            {uploadingInstaller && <div style={{ margin: "10px 0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: "13px", marginBottom: "4px" }}><span>Uploading installer…</span><span>{installerUploadProgress}%</span></div>
+              <div style={{ height: "8px", background: "#e5e7eb", borderRadius: "8px", overflow: "hidden" }}><div style={{ width: `${installerUploadProgress}%`, height: "100%", background: "#2563eb", transition: "width 0.2s" }} /></div>
+            </div>}
             {installerUploadError && <p style={{ color: "#d93025" }}>{installerUploadError}</p>}
             {installerUploadSuccess && <p style={{ color: "#18864b" }}>{installerUploadSuccess}</p>}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
