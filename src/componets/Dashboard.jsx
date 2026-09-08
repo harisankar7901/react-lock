@@ -4,7 +4,6 @@ import ZipEnrolmentReports from './ZipEnrolmentReports.jsx';
 import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import logo from '../assets/logo.jpeg';
 const MAX_DEVICE_ALLOWED = 200;
 const getTodayForDateInput = () => {
   const now = new Date();
@@ -761,13 +760,6 @@ const Dashboard = () => {
         className="dashboard-header"
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
       >
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <img
-            src={logo}
-            alt="Sarada Systems Pvt. Ltd."
-            style={{ height: "80px", width: "200px" }}
-          />
-        </div>
 
         <div style={{ textAlign: "center", flex: 1 }}>
           <h1>Device Dashboard</h1>

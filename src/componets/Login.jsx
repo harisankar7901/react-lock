@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Login.css";
 import api from '../api/api.js';
-import logo from "../assets/logo.jpeg";
 const Login = () => {
   const navigate = useNavigate();
 
@@ -74,8 +73,6 @@ const Login = () => {
   return (
     <div className="login-page">
       <div className="login-card">
-        <img className="login-logo" src={logo} alt="Sarada Systems Pvt. Ltd." />
-
         <h2 className="login-title">Log In</h2>
 
         <div className="login-form">
