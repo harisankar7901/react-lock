@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../api/api.js";
-import logo from "../assets/logo.jpeg";
 import "./Login.css";
 
 const ResetPassword = () => {
@@ -43,7 +42,6 @@ const ResetPassword = () => {
   return (
     <div className="login-page">
       <div className="login-card">
-        <img className="login-logo" src={logo} alt="Sarada Systems Pvt. Ltd." />
         <h2 className="login-title">Reset Password</h2>
         <form className="login-form" onSubmit={submit}>
           <div className="form-group"><label>Email</label><input name="email" type="email" value={form.email} onChange={updateField} required /></div>
