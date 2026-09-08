@@ -36,30 +36,7 @@ const Login = () => {
             console.log('login api error')
         }
     }
-  const onLogIn1 = async () => {
-    const API_URL = import.meta.env.VITE_API_URL;
-    // const url = "http://localhost:5000/api/login";
-    //  const API_URL = import.meta.env.VITE_API_URL;
-    const url = `${API_URL}/api/login`;
-    
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(loginData),
-      });
 
-      const data = await response.json();
-
-      console.log(data);
-
-      navigate("/userList");
-    } catch (error) {
-      console.error("Login error:", error);
-    }
-  };
 
   const onUserLoginChange = (e) => {
     const { name, value } = e.target;
