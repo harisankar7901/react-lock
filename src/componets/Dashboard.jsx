@@ -4,7 +4,7 @@ import ZipEnrolmentReports from './ZipEnrolmentReports.jsx';
 import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-const MAX_DEVICE_ALLOWED = 200;
+import { HIDE_REPORT_ZIP_TAB, MAX_DEVICE_ALLOWED } from "../constants.js";
 const getTodayForDateInput = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -1125,15 +1125,17 @@ const Dashboard = () => {
               >
                 MIS Report
               </button>
-              <button
-                onClick={() => setReportTab("zip")}
-                style={{ padding: "9px 14px", border: "none", borderBottom: reportTab === "zip" ? "3px solid #2563eb" : "3px solid transparent", background: "transparent", color: reportTab === "zip" ? "#2563eb" : "#374151", fontWeight: 600, cursor: "pointer" }}
-              >
-                Zip
-              </button>
+              {!HIDE_REPORT_ZIP_TAB && (
+                <button
+                  onClick={() => setReportTab("zip")}
+                  style={{ padding: "9px 14px", border: "none", borderBottom: reportTab === "zip" ? "3px solid #2563eb" : "3px solid transparent", background: "transparent", color: reportTab === "zip" ? "#2563eb" : "#374151", fontWeight: 600, cursor: "pointer" }}
+                >
+                  Zip
+                </button>
+              )}
             </div>
 
-            {reportTab === "excel" ? (
+            {reportTab === "excel" || HIDE_REPORT_ZIP_TAB ? (
               <>
                 <div style={{ display: "flex", alignItems: "end", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
                   <label>
