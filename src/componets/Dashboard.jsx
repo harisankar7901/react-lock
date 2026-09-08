@@ -1074,7 +1074,7 @@ const Dashboard = () => {
                           ✏️ Edit
                         </button>
                         )}
-                        {role === 'superAdmin' && (
+                        {(role === 'superAdmin' || role === 'admin') && (
                           <button
                             onClick={() => handleDeleteDevice(device)}
                             disabled={deletingDeviceId === device._id}
