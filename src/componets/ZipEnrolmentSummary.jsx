@@ -22,13 +22,13 @@ export default function ZipEnrolmentSummary({ reportId, refreshKey }) {
 
     return <section aria-label="Extracted data summary" style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #dbe3ed' }}>
         <h3 style={{ margin: '0 0 8px' }}>Summary</h3>
-        <p style={{ margin: '0 0 12px', color: '#475569' }}>All matching records, grouped by date, station and operator.</p>
+        <p style={{ margin: '0 0 12px', color: '#475569' }}>All matching records, grouped by date and operator.</p>
         {busy ? <p role="status">Loading summary...</p> : response?.error ? <p role="alert" style={{ color: '#d93025' }}>{response.error}</p> : !rows.length ? <p>No records to summarize.</p> : <>
             <div className="mis-report-table-scroll" style={{ overflow: 'auto', maxHeight: '40vh' }}>
                 <table className="mis-report-table" style={{ whiteSpace: 'nowrap' }}>
-                    <thead><tr><th>SL Number</th><th>DATE</th><th>Station ID</th><th>OPERATOR_ID</th><th>Operator Name</th><th>NEW</th><th>MANDATORY FREE</th><th>BIOMETRIC</th><th>DEMOGRAPHY</th><th>TOTAL DATA</th><th>TOTAL_AMOUNT_CHARGED</th><th>Match</th></tr></thead>
-                    <tbody>{rows.map((row, index) => <tr key={JSON.stringify([row.date, row.stationId, row.operatorId])}>
-                        <td>{index + 1}</td><td>{dateLabel(row.date)}</td><td>{row.stationId || '—'}</td><td>{row.operatorId || '—'}</td><td>{row.operatorName || '—'}</td>
+                    <thead><tr><th>SL Number</th><th>DATE</th><th>OPERATOR_ID</th><th>Operator Name</th><th>NEW</th><th>MANDATORY FREE</th><th>BIOMETRIC</th><th>DEMOGRAPHY</th><th>TOTAL DATA</th><th>TOTAL_AMOUNT_CHARGED</th><th>Match</th></tr></thead>
+                    <tbody>{rows.map((row, index) => <tr key={JSON.stringify([row.date, row.operatorId])}>
+                        <td>{index + 1}</td><td>{dateLabel(row.date)}</td><td>{row.operatorId || '—'}</td><td>{row.operatorName || '—'}</td>
                         <td>{row.newCount}</td><td>{row.mandatoryFree}</td><td>{row.biometric}</td><td>{row.demography}</td><td>{row.totalData}</td><td>{amount.format(row.totalAmountCharged)}</td><td style={{ color: row.match === true ? '#15803d' : '#b91c1c', fontWeight: 600 }}>{row.match === true ? 'true' : 'false'}</td>
                     </tr>)}</tbody>
                 </table>
