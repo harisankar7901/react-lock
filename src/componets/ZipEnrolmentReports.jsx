@@ -1,40 +1,39 @@
 import { useState } from 'react';
 import MissingZipReports from './MissingZipReports.jsx';
 import ZipEnrolmentSummary from './ZipEnrolmentSummary.jsx';
-export default function ZipEnrolmentReports({ reports, loading, error, formatFileSize }) {
-    const [tab, setTab] = useState('list');
-    const [reportId, setReportId] = useState('');
+
+const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
+const inputStyle = { display: 'block', marginTop: 5, padding: 8 };
+
+export default function ZipEnrolmentReports({ error, coordinators = [], isDistrictCoordinator = false, coordinatorEmail = '', coordinatorName = '' }) {
     const [revision, setRevision] = useState(0);
-    return <>
-        <div aria-label="ZIP report views" style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-            {[['list', 'ZIP List'], ['data', 'Extracted Data']].map(([value, label]) => (
-                <button key={value} type="button" aria-pressed={tab === value} onClick={() => setTab(value)}
-                    style={{ padding: '9px 16px', border: '1px solid #dbe3ed', borderRadius: 6, cursor: 'pointer', background: tab === value ? '#2563eb' : '#fff', color: tab === value ? '#fff' : '#374151' }}>
-                    {label}
-                </button>
-            ))}
+    const [draft, setDraft] = useState(() => ({ fromDate: today(), toDate: today(), operatorId: '', operatorName: '', coordinatorEmail: isDistrictCoordinator ? coordinatorEmail : '' }));
+    const [search, setSearch] = useState(draft);
+    const update = event => setDraft(previous => ({ ...previous, [event.target.name]: event.target.value }));
+    const submit = event => {
+        event.preventDefault();
+        setSearch({ ...draft, coordinatorEmail: isDistrictCoordinator ? coordinatorEmail : draft.coordinatorEmail });
+        setRevision(value => value + 1);
+    };
+    return <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
+        <form onSubmit={submit} style={{ display: 'flex', gap: 10, alignItems: 'end', flexWrap: 'wrap', marginBottom: 14 }}>
+            <label>From date<input type="date" name="fromDate" required value={draft.fromDate} max={draft.toDate || undefined} onChange={update} style={inputStyle} /></label>
+            <label>To date<input type="date" name="toDate" required value={draft.toDate} min={draft.fromDate || undefined} onChange={update} style={inputStyle} /></label>
+            <label>Operator ID<input type="text" name="operatorId" value={draft.operatorId} placeholder="Search operator ID" onChange={update} style={inputStyle} /></label>
+            <label>Operator Name<input type="text" name="operatorName" value={draft.operatorName} placeholder="Search operator name" onChange={update} style={inputStyle} /></label>
+            <label>Dist. Coordinator
+                <select name="coordinatorEmail" value={draft.coordinatorEmail} disabled={isDistrictCoordinator} onChange={update} style={{ ...inputStyle, minWidth: 190, background: isDistrictCoordinator ? '#f3f4f6' : '#fff' }}>
+                    {!isDistrictCoordinator && <option value="">All District Coordinators</option>}
+                    {isDistrictCoordinator && !coordinators.some(coordinator => coordinator.email === coordinatorEmail) && <option value={coordinatorEmail}>{coordinatorName || coordinatorEmail}</option>}
+                    {coordinators.map(coordinator => <option key={coordinator._id || coordinator.email} value={coordinator.email}>{coordinator.name || coordinator.email}</option>)}
+                </select>
+            </label>
+            <button type="submit" style={{ padding: '9px 16px' }}>Search</button>
+        </form>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
             <MissingZipReports />
         </div>
-        {tab === 'list' ? loading ? <p>Loading zip files...</p> : error ? <p role="alert" style={{ color: '#d93025' }}>{error}</p> : !reports.length ? <p>No uploaded zip files found.</p> : (
-            <div style={{ overflow: 'auto', flex: 1, minHeight: 0 }}>
-                <table>
-                    <thead><tr><th>File Name</th><th>Size</th><th>Uploaded</th><th>Action</th></tr></thead>
-                    <tbody>{reports.map(report => (
-                        <tr key={report._id}><td>{report.fileName}</td><td>{formatFileSize(report.size)}</td><td>{new Date(report.createdAt).toLocaleString()}</td><td>{report.downloadUrl ? <a href={report.downloadUrl} target="_blank" rel="noreferrer">Download</a> : '—'}</td></tr>
-                    ))}</tbody>
-                </table>
-            </div>
-        ) : <div style={{ overflowY: 'auto', flex: 1, minHeight: 0 }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-                <label>Uploaded ZIP{' '}
-                    <select value={reportId} onChange={event => setReportId(event.target.value)} style={{ padding: 8, maxWidth: '65vw' }}>
-                        <option value="">All ZIP reports</option>
-                        {reports.map(report => <option key={report._id} value={report._id}>{report.fileName} — {new Date(report.createdAt).toLocaleString()}</option>)}
-                    </select>
-                </label>
-                <button type="button" onClick={() => setRevision(value => value + 1)}>Refresh</button>
-            </div>
-            <ZipEnrolmentSummary reportId={reportId} refreshKey={revision} />
-        </div>}
-    </>;
+        {error && <p role="alert" style={{ color: '#d93025' }}>{error}</p>}
+        <ZipEnrolmentSummary reportId="" refreshKey={revision} search={search} />
+    </div>;
 }

@@ -63,13 +63,15 @@
 
 .device-container {
   background: white;
-  border-radius: 12px;
+  border: 1px solid #e3ebf5;
+  border-radius: 16px;
   padding: 20px;
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-shadow: 0 12px 30px rgba(30, 58, 95, 0.08);
 }
 
 .device-toolbar {
@@ -90,12 +92,92 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  border: 1px solid #e7eef7;
+  border-radius: 12px;
+  background: #fff;
 }
 
-.device-table-scroll thead th {
+.device-table-scroll .device-table thead th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
+}
+
+.device-table {
+  min-width: 1380px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13px;
+}
+
+.device-table th {
+  background: linear-gradient(135deg, #123b73, #1f5ba8);
+  color: #fff;
+  padding: 13px 14px;
+  border: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.device-table th:first-child {
+  border-top-left-radius: 10px;
+}
+
+.device-table th:last-child {
+  border-top-right-radius: 10px;
+}
+
+.device-table td {
+  padding: 13px 14px;
+  border-bottom: 1px solid #e8eef6;
+  color: #243447;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.device-table tbody tr:nth-child(even) {
+  background: #f8fbff;
+}
+
+.device-table tbody tr {
+  transition: background 0.16s ease, box-shadow 0.16s ease;
+}
+
+.device-table tbody tr:hover {
+  background: #edf5ff;
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+.device-table .device-name {
+  color: #123b73;
+  font-weight: 700;
+}
+
+.device-table .status {
+  display: inline-flex;
+  align-items: center;
+  min-width: 82px;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.device-table .connection-status-dot {
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+}
+
+.device-table .no-data {
+  padding: 52px;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
 }
 
 .device-toolbar input {
@@ -118,6 +200,16 @@
   border: none;
   border-radius: 7px;
   cursor: pointer;
+  background: #1f5ba8;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 3px 8px rgba(31, 91, 168, 0.18);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.device-toolbar button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(31, 91, 168, 0.24);
 }
 
 table {

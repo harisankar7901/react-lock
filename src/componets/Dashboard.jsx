@@ -4,7 +4,7 @@ import ZipEnrolmentReports from './ZipEnrolmentReports.jsx';
 import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { HIDE_REPORT_ZIP_TAB, MAX_DEVICE_ALLOWED } from "../constants.js";
+import { HIDE_REPORT_ZIP_TAB, MAX_DEVICE_ALLOWED,SHOW_All_REPORT } from "../constants.js";
 const getTodayForDateInput = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -67,6 +67,13 @@ const Dashboard = () => {
   const [missingMisLoading, setMissingMisLoading] = useState(false);
   const [missingMisError, setMissingMisError] = useState("");
   const [showMissingMisModal, setShowMissingMisModal] = useState(false);
+  const [showUsbTodayModal, setShowUsbTodayModal] = useState(false);
+  const [usbTodayRecords, setUsbTodayRecords] = useState([]);
+  const [usbTodayDate, setUsbTodayDate] = useState("");
+  const [usbSelectedDate, setUsbSelectedDate] = useState(getTodayForDateInput);
+  const [usbTodayLoading, setUsbTodayLoading] = useState(false);
+  const [usbTodayError, setUsbTodayError] = useState("");
+  const [selectedDeviceIds, setSelectedDeviceIds] = useState([]);
   const [messageDevice, setMessageDevice] = useState(null);
   const [deviceMessage, setDeviceMessage] = useState("");
   const [messageIsImage, setMessageIsImage] = useState(false);
@@ -82,6 +89,18 @@ const Dashboard = () => {
 
   const openMessageModal = (device) => {
     setMessageDevice(device);
+    setDeviceMessage("");
+    setMessageIsImage(false);
+    setImageFileName("");
+    setImageCaption("");
+    setMessageError("");
+  };
+
+  const openSelectedMessageModal = () => {
+    const recipients = filteredDevices.filter((device) => selectedDeviceIds.includes(device.deviceId));
+    if (recipients.length === 0) return;
+
+    setMessageDevice({ isBulk: true, recipients });
     setDeviceMessage("");
     setMessageIsImage(false);
     setImageFileName("");
@@ -138,15 +157,26 @@ const Dashboard = () => {
       setSendingMessage(true);
       setMessageError("");
 
-      await api.post(`devices/${messageDevice.deviceId}/sendMessage`, {
-        message,
-        deviceId: messageDevice.deviceId,
-        messageType: messageIsImage ? "image" : "text",
-        caption: messageIsImage ? imageCaption.trim() : "",
-      });
+      const recipients = messageDevice.isBulk ? messageDevice.recipients : [messageDevice];
+      const results = await Promise.allSettled(recipients.map((recipient) => api.post(
+        `devices/${recipient.deviceId}/sendMessage`,
+        {
+          message,
+          deviceId: recipient.deviceId,
+          messageType: messageIsImage ? "image" : "text",
+          caption: messageIsImage ? imageCaption.trim() : "",
+        }
+      )));
+      const failedCount = results.filter((result) => result.status === "rejected").length;
+
+      if (failedCount > 0) {
+        setMessageError(`Message was sent to ${recipients.length - failedCount} device(s), but failed for ${failedCount}.`);
+        return;
+      }
 
       closeMessageModal(true);
-      alert("Message sent successfully.");
+      if (messageDevice.isBulk) setSelectedDeviceIds([]);
+      alert(`Message sent successfully to ${recipients.length} device(s).`);
     } catch (error) {
       console.error("Send device message error:", error);
       setMessageError(
@@ -237,14 +267,26 @@ const Dashboard = () => {
     }
   };
 
-  const formatFileSize = (size) => {
-    if (!Number.isFinite(size)) return "-";
-    return size < 1024 * 1024
-      ? `${Math.ceil(size / 1024)} KB`
-      : `${(size / (1024 * 1024)).toFixed(2)} MB`;
-  };
-
   const displayValue = (value) => value === null || value === undefined || value === "" ? "-" : value;
+  const displayUsbSerialNumber = (value) => (
+    typeof value === "string" && value.includes("&") ? "-" : displayValue(value)
+  );
+  const displayUsbDeviceName = (usbDevice) => {
+    const name = usbDevice?.name || usbDevice?.description || "";
+    const normalizedName = name.toLowerCase();
+
+    if (normalizedName.includes("mtp") || normalizedName.includes("portable device")) {
+      return `Mobile phone — ${name}`;
+    }
+
+    if (normalizedName.includes("usb input device")) {
+      // Windows calls many HID peripherals "USB Input Device". It can be a
+      // mouse or keyboard, so retain the Windows name instead of guessing.
+      return `Mouse / keyboard — ${name}`;
+    }
+
+    return name;
+  };
 
   const misTotals = useMemo(() => {
     const totalFields = [
@@ -577,6 +619,24 @@ const Dashboard = () => {
     }
   };
 
+  const loadTodayUsbDevices = async (date = usbSelectedDate) => {
+    setUsbTodayRecords([]);
+    setUsbTodayDate("");
+    setUsbTodayError("");
+    setShowUsbTodayModal(true);
+    setUsbTodayLoading(true);
+    try {
+      const response = await api.get("devices/usb-devices/daily", { params: { date } });
+      setUsbTodayRecords(response.data.data?.records || []);
+      setUsbTodayDate(response.data.data?.date || date);
+    } catch (error) {
+      console.error("Fetch today's USB devices error:", error);
+      setUsbTodayError(error.response?.data?.message || "Unable to load today's connected USB devices.");
+    } finally {
+      setUsbTodayLoading(false);
+    }
+  };
+
   const handleDeleteDevice = async (device) => {
     const deviceName = device.laptopName || device.deviceId || "this device";
     if (!window.confirm(`Delete ${deviceName}? This removes it from the device list.`)) {
@@ -738,6 +798,27 @@ const Dashboard = () => {
     });
   }, [devices, search, deviceFilter]);
 
+  const selectedFilteredDeviceIds = filteredDevices
+    .map((device) => device.deviceId)
+    .filter(Boolean);
+  const allFilteredDevicesSelected = selectedFilteredDeviceIds.length > 0 &&
+    selectedFilteredDeviceIds.every((deviceId) => selectedDeviceIds.includes(deviceId));
+
+  const toggleDeviceSelection = (deviceId) => {
+    setSelectedDeviceIds((previous) => previous.includes(deviceId)
+      ? previous.filter((id) => id !== deviceId)
+      : [...previous, deviceId]);
+  };
+
+  const toggleAllFilteredDevices = () => {
+    setSelectedDeviceIds((previous) => {
+      if (allFilteredDevicesSelected) {
+        return previous.filter((id) => !selectedFilteredDeviceIds.includes(id));
+      }
+      return [...new Set([...previous, ...selectedFilteredDeviceIds])];
+    });
+  };
+
   const totalDevices = devices.length;
 
   const lockedDevices = devices.filter((device) => device.lock === true).length;
@@ -842,6 +923,7 @@ const Dashboard = () => {
                   ⬆️ Install New Version
                 </button>
               )}
+                 {SHOW_All_REPORT && (
               <button
                 onClick={openReportList}
                 style={{
@@ -856,6 +938,7 @@ const Dashboard = () => {
               >
                 📄 Report List
               </button>
+                 )}
               <button
                 onClick={handleLogout}
                 style={{
@@ -935,10 +1018,20 @@ const Dashboard = () => {
             </select>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <button
+              onClick={openSelectedMessageModal}
+              disabled={selectedDeviceIds.length === 0}
+              title="Send the same message to the selected devices"
+            >
+              💬 Message Selected{selectedDeviceIds.length ? ` (${selectedDeviceIds.length})` : ""}
+            </button>
             {role === "distCoordinator" && (
               <span style={{ fontWeight: 600, whiteSpace: "nowrap", color: "#1e3a5f" }}>
                 {loggedInCoordinatorName}
               </span>
+            )}
+            {role === "superAdmin" && (
+              <button onClick={loadTodayUsbDevices}>🔌 Show Connected Devices Today</button>
             )}
             <button onClick={fetchDevices}>Refresh</button>
           </div>
@@ -948,9 +1041,19 @@ const Dashboard = () => {
           <div className="loading">Loading devices...</div>
         ) : (
           <div className="device-table-scroll">
-          <table>
+          <table className="device-table">
             <thead>
               <tr>
+                <th style={{ width: "42px", textAlign: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={allFilteredDevicesSelected}
+                    onChange={toggleAllFilteredDevices}
+                    disabled={selectedFilteredDeviceIds.length === 0}
+                    title="Select all visible devices"
+                    aria-label="Select all visible devices"
+                  />
+                </th>
                 <th>Computer Name</th>
                 {/* <th>Device ID</th> */}
                 {/* <th>User</th> */}
@@ -971,13 +1074,21 @@ const Dashboard = () => {
             <tbody>
               {filteredDevices.length === 0 ? (
                 <tr>
-                  <td colSpan={role === "distCoordinator" ? 11 : 12} className="no-data">
+                  <td colSpan={role === "distCoordinator" ? 12 : 13} className="no-data">
                     No devices found
                   </td>
                 </tr>
               ) : (
                 filteredDevices.map((device) => (
                   <tr key={device._id}>
+                    <td style={{ textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedDeviceIds.includes(device.deviceId)}
+                        onChange={() => toggleDeviceSelection(device.deviceId)}
+                        aria-label={`Select ${device.laptopName || device.deviceId}`}
+                      />
+                    </td>
                     <td>
                       <div className="device-name">
                         <span
@@ -1123,14 +1234,14 @@ const Dashboard = () => {
                 onClick={() => setReportTab("excel")}
                 style={{ padding: "9px 14px", border: "none", borderBottom: reportTab === "excel" ? "3px solid #2563eb" : "3px solid transparent", background: "transparent", color: reportTab === "excel" ? "#2563eb" : "#374151", fontWeight: 600, cursor: "pointer" }}
               >
-                MIS Report
+                OFF Govt. Portal MIS Report
               </button>
               {!HIDE_REPORT_ZIP_TAB && (
                 <button
                   onClick={() => setReportTab("zip")}
                   style={{ padding: "9px 14px", border: "none", borderBottom: reportTab === "zip" ? "3px solid #2563eb" : "3px solid transparent", background: "transparent", color: reportTab === "zip" ? "#2563eb" : "#374151", fontWeight: 600, cursor: "pointer" }}
                 >
-                  Zip
+                  EOD MIS Report
                 </button>
               )}
             </div>
@@ -1205,7 +1316,7 @@ const Dashboard = () => {
                 )}
               </>
             ) : (
-              <ZipEnrolmentReports reports={visibleReports} loading={reportsLoading} error={reportsError} formatFileSize={formatFileSize} />
+              <ZipEnrolmentReports reports={visibleReports} loading={reportsLoading} error={reportsError} coordinators={coordinators} isDistrictCoordinator={isDistrictCoordinator} coordinatorEmail={loggedInCoordinatorEmail} coordinatorName={loggedInCoordinatorName} />
             )}
           </div>
         </div>
@@ -1261,6 +1372,76 @@ const Dashboard = () => {
         </div>
       )}
 
+      {showUsbTodayModal && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowUsbTodayModal(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "1480px", maxWidth: "96%", maxHeight: "80vh", display: "flex", flexDirection: "column" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+              <h2 style={{ margin: 0 }}>Connected USB Devices — {usbTodayDate || "Today"}</h2>
+              <button onClick={() => setShowUsbTodayModal(false)}>Close</button>
+            </div>
+            <div style={{ display: "flex", alignItems: "end", gap: "10px", marginTop: "16px" }}>
+              <label>
+                Date
+                <input
+                  type="date"
+                  value={usbSelectedDate}
+                  max={getTodayForDateInput()}
+                  onChange={(event) => setUsbSelectedDate(event.target.value)}
+                  style={{ display: "block", marginTop: "5px", padding: "8px" }}
+                />
+              </label>
+              <button
+                onClick={() => loadTodayUsbDevices(usbSelectedDate)}
+                disabled={!usbSelectedDate || usbTodayLoading}
+                style={{ padding: "9px 16px" }}
+              >
+                {usbTodayLoading ? "Loading..." : "Search"}
+              </button>
+            </div>
+            {usbTodayLoading ? <p>Loading connected USB devices...</p> : usbTodayError ? <p style={{ color: "#d93025" }}>{usbTodayError}</p> : usbTodayRecords.length === 0 ? <p>No USB devices were detected for the selected date.</p> : (
+              <div style={{ overflow: "auto", marginTop: "16px" }}>
+                <table style={{ width: "100%", minWidth: "1320px", borderCollapse: "collapse" }}>
+                  <thead><tr><th>Laptop Unique ID</th><th>Operator ID</th><th>OPR_Name</th><th>District Manager Name</th><th>Laptop Serial Number</th><th>USB1</th><th>USB2</th><th>USB3</th><th>USB4</th><th>USB5</th></tr></thead>
+                  <tbody>{usbTodayRecords.map(record => {
+                    const device = record.device || {};
+                    const externalDevices = (record.devices || []).slice(0, 5);
+                    return (
+                      <tr key={record.deviceId}>
+                        <td style={{ wordBreak: "break-all" }}>{record.deviceId}</td>
+                        <td>{displayValue(device.operatorId)}</td>
+                        <td>{displayValue(device.operatorName)}</td>
+                        <td>{displayValue(device.distCoordinatorName)}</td>
+                        <td>{displayValue(device.laptopSerialNumber)}</td>
+                        {[0, 1, 2, 3, 4].map(index => (
+                          <td key={index}>
+                            {externalDevices[index]
+                              ? <>
+                                  <div>{displayValue(displayUsbDeviceName(externalDevices[index]))}</div>
+                                  <small style={{ color: "#596579" }}>
+                                    Serial: {displayUsbSerialNumber(externalDevices[index].serialNumber)}
+                                  </small>
+                                </>
+                              : "-"}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {messageDevice && (
         <div
           className="modal-overlay"
@@ -1273,7 +1454,9 @@ const Dashboard = () => {
             style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "440px", maxWidth: "90%" }}
           >
             <h2 style={{ marginTop: 0 }}>
-              Send Message — {messageDevice.operatorName || "Unknown operator"} - {messageDevice.operatorId || "No operator ID"}
+              {messageDevice.isBulk
+                ? `Send Message — ${messageDevice.recipients.length} Selected Devices`
+                : `Send Message — ${messageDevice.operatorName || "Unknown operator"} - ${messageDevice.operatorId || "No operator ID"}`}
             </h2>
             <label style={{ display: "block" }}>
               <span style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>

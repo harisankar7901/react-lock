@@ -6,3 +6,4 @@ export const MAX_DEVICE_ALLOWED = 200;
 
 // Set to false when ZIP reports should be visible again.
 export const HIDE_REPORT_ZIP_TAB = false;
+export const SHOW_All_REPORT = false;
