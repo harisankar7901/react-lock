@@ -2065,8 +2065,13 @@ const Dashboard = () => {
                 const selectedFile = event.target.files?.[0] || null;
                 setInstallerFile(selectedFile);
                 if (selectedFile) {
+                  const semanticVersionMatch = selectedFile.name.match(/(?:-|_)(\d+\.\d+\.\d+)\.msi$/i);
                   const buildNumberMatch = selectedFile.name.match(/(?:-|_)(\d+)\.msi$/i);
-                  if (buildNumberMatch) setInstallerVersion(`1.0.${buildNumberMatch[1]}`);
+                  if (semanticVersionMatch) {
+                    setInstallerVersion(semanticVersionMatch[1]);
+                  } else if (buildNumberMatch) {
+                    setInstallerVersion(`1.0.${buildNumberMatch[1]}`);
+                  }
                 }
                 setInstallerUploadError("");
                 setInstallerUploadSuccess("");
