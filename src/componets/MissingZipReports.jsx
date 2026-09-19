@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import api from '../api/api.js';
+import SelectedOperatorActions from './SelectedOperatorActions.jsx';
 
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
 
-export default function MissingZipReports() {
+export default function MissingZipReports({ canManage = false }) {
     const [open, setOpen] = useState(false);
     const [date, setDate] = useState(today);
     const [busy, setBusy] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
+    const [selectedOperatorIds, setSelectedOperatorIds] = useState([]);
     const controller = useRef(null);
     const closeButton = useRef(null);
     const trigger = useRef(null);
@@ -19,7 +21,7 @@ export default function MissingZipReports() {
         controller.current?.abort();
         const request = new AbortController();
         controller.current = request;
-        setOpen(true); setDate(requestedDate); setBusy(true); setResult(null); setError('');
+        setOpen(true); setDate(requestedDate); setBusy(true); setResult(null); setError(''); setSelectedOperatorIds([]);
         try {
             const response = await api.get('devices/reports/missing-zip-reports', { params: { date: requestedDate }, signal: request.signal });
             if (!request.signal.aborted) setResult(response.data);
@@ -48,7 +50,8 @@ export default function MissingZipReports() {
                 </div>
                 {busy ? <p role="status">Loading missing ZIP reports...</p> : error ? <p role="alert" style={{ color: '#d93025' }}>{error}</p> : result ? result.data.length === 0 ? <p>All assigned operators have uploaded a ZIP report for {result.date}.</p> : <>
                     <p>{result.data.length} operators without a ZIP report for {result.date}.</p>
-                    <table><thead><tr><th>SL NO</th><th>Operator ID</th><th>Operator Name</th></tr></thead><tbody>{result.data.map((operator, index) => <tr key={operator.operatorId}><td>{index + 1}</td><td>{operator.operatorId}</td><td>{operator.operatorName || '—'}</td></tr>)}</tbody></table>
+                    <SelectedOperatorActions selectedOperators={result.data.filter(operator => selectedOperatorIds.includes(operator.operatorId))} onClearSelection={() => setSelectedOperatorIds([])} canManage={canManage} />
+                    <table><thead><tr><th><input type="checkbox" checked={result.data.length > 0 && result.data.every(operator => selectedOperatorIds.includes(operator.operatorId))} onChange={() => setSelectedOperatorIds(selected => selected.length === result.data.length ? [] : result.data.map(operator => operator.operatorId))} aria-label="Select all operators" /></th><th>SL NO</th><th>Operator ID</th><th>Operator Name</th></tr></thead><tbody>{result.data.map((operator, index) => <tr key={operator.operatorId}><td><input type="checkbox" checked={selectedOperatorIds.includes(operator.operatorId)} onChange={() => setSelectedOperatorIds(selected => selected.includes(operator.operatorId) ? selected.filter(id => id !== operator.operatorId) : [...selected, operator.operatorId])} aria-label={`Select ${operator.operatorId}`} /></td><td>{index + 1}</td><td>{operator.operatorId}</td><td>{operator.operatorName || '—'}</td></tr>)}</tbody></table>
                 </> : <p>Select a date and click Show Operators.</p>}
             </div>
         </div>}

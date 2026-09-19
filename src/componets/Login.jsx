@@ -9,13 +9,22 @@ const Login = () => {
     loginName: "",
     loginPassword: "",
   });
+  const [loginError, setLoginError] = useState("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-      const onLogIn = async () => {
+      const onLogIn = async (event) => {
+        event?.preventDefault();
         const formData = {
             email:loginData.loginName,
             password:loginData.loginPassword
         }
+        if (!formData.email.trim() || !formData.password) {
+            setLoginError("Please enter your email and password.");
+            return;
+        }
         try {
+            setIsLoggingIn(true);
+            setLoginError("");
             const res = await api.post(
                 'auth/login',
                  formData
@@ -33,7 +42,15 @@ const Login = () => {
                 
             console.log('login success'+res)
         } catch (e) {
-            console.log('login api error')
+            console.error('login api error', e);
+            setLoginError(
+              e.response?.data?.message ||
+              (e.request
+                ? "Unable to reach the server. Please check your internet connection and try again."
+                : "Login failed. Please try again.")
+            );
+        } finally {
+            setIsLoggingIn(false);
         }
     }
 
@@ -45,6 +62,7 @@ const Login = () => {
       ...prev,
       [name]: value,
     }));
+    if (loginError) setLoginError("");
   };
 
   return (
@@ -52,7 +70,7 @@ const Login = () => {
       <div className="login-card">
         <h2 className="login-title">Log In</h2>
 
-        <div className="login-form">
+        <form className="login-form" onSubmit={onLogIn}>
 
           <div className="form-group">
             <label htmlFor="loginName">Email</label>
@@ -81,13 +99,19 @@ const Login = () => {
           </div>
 
           <button
+            type="submit"
             className="login-button"
-            onClick={onLogIn}
+            disabled={isLoggingIn}
           >
-            Login
+            {isLoggingIn ? "Logging in..." : "Login"}
           </button>
 
-        </div>
+          {loginError && (
+            <p className="login-error" role="alert">
+              {loginError}
+            </p>
+          )}
+        </form>
 
         <div className="register-section">
           <button

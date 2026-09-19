@@ -5,7 +5,7 @@ import ZipEnrolmentSummary from './ZipEnrolmentSummary.jsx';
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
 const inputStyle = { display: 'block', marginTop: 5, padding: 8 };
 
-export default function ZipEnrolmentReports({ error, coordinators = [], isDistrictCoordinator = false, coordinatorEmail = '', coordinatorName = '' }) {
+export default function ZipEnrolmentReports({ error, coordinators = [], isDistrictCoordinator = false, coordinatorEmail = '', coordinatorName = '', role = '' }) {
     const [revision, setRevision] = useState(0);
     const [draft, setDraft] = useState(() => ({ fromDate: today(), toDate: today(), operatorId: '', operatorName: '', coordinatorEmail: isDistrictCoordinator ? coordinatorEmail : '' }));
     const [search, setSearch] = useState(draft);
@@ -31,7 +31,7 @@ export default function ZipEnrolmentReports({ error, coordinators = [], isDistri
             <button type="submit" style={{ padding: '9px 16px' }}>Search</button>
         </form>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-            <MissingZipReports />
+            <MissingZipReports canManage={role === 'admin' || role === 'superAdmin'} />
         </div>
         {error && <p role="alert" style={{ color: '#d93025' }}>{error}</p>}
         <ZipEnrolmentSummary reportId="" refreshKey={revision} search={search} />

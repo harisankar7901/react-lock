@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import api from '../api/api.js';
 import ZipEnrolmentReports from './ZipEnrolmentReports.jsx';
+import SelectedOperatorActions from './SelectedOperatorActions.jsx';
 import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -17,6 +18,14 @@ const Dashboard = () => {
   const [deviceFilter, setDeviceFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
+  const [lockReasonDevice, setLockReasonDevice] = useState(null);
+  const [lockReasonAction, setLockReasonAction] = useState("lock");
+  const [lockReason, setLockReason] = useState("");
+  const [lockReasonError, setLockReasonError] = useState("");
+  const [showLockHistory, setShowLockHistory] = useState(false);
+  const [lockHistory, setLockHistory] = useState([]);
+  const [lockHistoryLoading, setLockHistoryLoading] = useState(false);
+  const [lockHistoryError, setLockHistoryError] = useState("");
   const [deletingDeviceId, setDeletingDeviceId] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [coordinators, setCoordinators] = useState([]);
@@ -67,6 +76,7 @@ const Dashboard = () => {
   const [missingMisLoading, setMissingMisLoading] = useState(false);
   const [missingMisError, setMissingMisError] = useState("");
   const [showMissingMisModal, setShowMissingMisModal] = useState(false);
+  const [selectedMissingMisIds, setSelectedMissingMisIds] = useState([]);
   const [showUsbTodayModal, setShowUsbTodayModal] = useState(false);
   const [usbTodayRecords, setUsbTodayRecords] = useState([]);
   const [usbTodayDate, setUsbTodayDate] = useState("");
@@ -601,6 +611,7 @@ const Dashboard = () => {
 
   const loadMissingTodayMisReports = async (date = getTodayForDateInput()) => {
     setMissingMisOperators([]);
+    setSelectedMissingMisIds([]);
     setMissingMisError("");
     setShowMissingMisModal(false);
     setMissingMisLoading(true);
@@ -675,15 +686,13 @@ const Dashboard = () => {
     fetchCoordinators();
   }, []);
 
-  const handleToggle = async (device) => {
+  const updateDeviceLockStatus = async (device, newLockStatus, reason = "") => {
     try {
       setUpdatingId(device._id);
 
-      const newLockStatus = !device.lock;
-
       const response = await api.patch(
         `devices/${device.deviceId}/status`,
-        { lock: newLockStatus }
+        { lock: newLockStatus, reason }
       );
 
       const result = response.data;
@@ -697,11 +706,68 @@ const Dashboard = () => {
       );
 
       console.log("Device updated:", result);
+      return true;
     } catch (error) {
       console.error("Update device error:", error);
-      alert("Unable to update device lock status");
+      const errorMessage = error.response?.data?.message || "Unable to update device lock status";
+      if (newLockStatus) {
+        setLockReasonError(errorMessage);
+      } else {
+        alert(errorMessage);
+      }
+      return false;
     } finally {
       setUpdatingId(null);
+    }
+  };
+
+  const handleToggle = (device) => {
+    setLockReasonDevice(device);
+    setLockReasonAction(device.lock ? "unlock" : "lock");
+    setLockReason("");
+    setLockReasonError("");
+  };
+
+  const confirmLockDevice = async () => {
+    if (!lockReasonDevice) return;
+    const reason = lockReason.trim();
+    if (!reason) {
+      setLockReasonError(`Please enter the reason for ${lockReasonAction}ing this device.`);
+      return;
+    }
+
+    const device = lockReasonDevice;
+    const updated = await updateDeviceLockStatus(device, lockReasonAction === "lock", reason);
+    if (updated) {
+      setLockReasonDevice(null);
+      setLockReasonAction("lock");
+      setLockReason("");
+      setLockReasonError("");
+    }
+  };
+
+  const closeLockReasonModal = () => {
+    if (updatingId !== lockReasonDevice?._id) {
+      setLockReasonDevice(null);
+      setLockReasonAction("lock");
+      setLockReason("");
+      setLockReasonError("");
+    }
+  };
+
+  const openLockHistory = async () => {
+    setShowDropdown(false);
+    setShowLockHistory(true);
+    setLockHistoryLoading(true);
+    setLockHistoryError("");
+    try {
+      const response = await api.get("devices/lock-history");
+      setLockHistory(response.data.data || []);
+    } catch (error) {
+      console.error("Get lock history error:", error);
+      setLockHistoryError(error.response?.data?.message || "Unable to load lock history.");
+    } finally {
+      setLockHistoryLoading(false);
     }
   };
 
@@ -921,6 +987,22 @@ const Dashboard = () => {
                   }}
                 >
                   ⬆️ Install New Version
+                </button>
+              )}
+              {(role === "admin" || role === "superAdmin") && (
+                <button
+                  onClick={openLockHistory}
+                  style={{
+                    width: "100%",
+                    padding: "10px 14px",
+                    textAlign: "left",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    borderBottom: "1px solid #eee",
+                  }}
+                >
+                  📋 Show Lock Reasons
                 </button>
               )}
                  {SHOW_All_REPORT && (
@@ -1215,6 +1297,93 @@ const Dashboard = () => {
         )}
       </div>
 
+      {lockReasonDevice && (
+        <div
+          className="modal-overlay"
+          onClick={closeLockReasonModal}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "12px", padding: "24px", width: "460px", maxWidth: "92%" }}
+          >
+            <h2 style={{ margin: "0 0 8px" }}>{lockReasonAction === "lock" ? "Lock Device" : "Unlock Device"}</h2>
+            <p style={{ margin: "0 0 16px", color: "#4b5563" }}>
+              Provide a reason before {lockReasonAction}ing <strong>{lockReasonDevice.laptopName || lockReasonDevice.deviceId}</strong>.
+            </p>
+            <label style={{ display: "block", fontWeight: 600 }}>
+              {lockReasonAction === "lock" ? "Lock reason" : "Unlock reason"}
+              <textarea
+                value={lockReason}
+                onChange={(event) => {
+                  setLockReason(event.target.value);
+                  if (lockReasonError) setLockReasonError("");
+                }}
+                placeholder={lockReasonAction === "lock" ? "Example: Payment pending / device maintenance" : "Example: Issue resolved / authorized by supervisor"}
+                maxLength="500"
+                rows="4"
+                autoFocus
+                disabled={updatingId === lockReasonDevice._id}
+                style={{ width: "100%", boxSizing: "border-box", marginTop: "8px", padding: "10px", resize: "vertical" }}
+              />
+            </label>
+            {lockReasonError && <p style={{ color: "#b91c1c", marginBottom: 0 }}>{lockReasonError}</p>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
+              <button onClick={closeLockReasonModal} disabled={updatingId === lockReasonDevice._id}>Cancel</button>
+              <button
+                onClick={confirmLockDevice}
+                disabled={updatingId === lockReasonDevice._id || !lockReason.trim()}
+                style={{ padding: "8px 18px", border: "none", borderRadius: "6px", background: lockReasonAction === "lock" ? "#dc2626" : "#16a34a", color: "#fff", cursor: "pointer" }}
+              >
+                {updatingId === lockReasonDevice._id ? `${lockReasonAction === "lock" ? "Locking" : "Unlocking"}...` : lockReasonAction === "lock" ? "Lock" : "Unlock"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLockHistory && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowLockHistory(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "12px", padding: "24px", width: "1100px", maxWidth: "96%", maxHeight: "80vh", display: "flex", flexDirection: "column" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+              <div>
+                <h2 style={{ margin: 0 }}>Lock & Unlock History</h2>
+                <small style={{ color: "#64748b" }}>Most recent 1,000 actions</small>
+              </div>
+              <button onClick={() => setShowLockHistory(false)}>Close</button>
+            </div>
+            {lockHistoryLoading ? <p>Loading lock history...</p> : lockHistoryError ? <p style={{ color: "#b91c1c" }}>{lockHistoryError}</p> : lockHistory.length === 0 ? <p>No lock activity has been recorded yet.</p> : (
+              <div style={{ overflow: "auto", marginTop: "16px" }}>
+                <table className="device-table" style={{ minWidth: "950px" }}>
+                  <thead><tr><th>Date & Time</th><th>Action</th><th>Laptop</th><th>Operator ID</th><th>Operator Name</th><th>Reason</th><th>Performed By</th><th>Role</th></tr></thead>
+                  <tbody>{lockHistory.map((record) => (
+                    <tr key={record._id}>
+                      <td>{formatLastSeen(record.createdAt)}</td>
+                      <td><span className={`status ${record.action === "locked" ? "locked" : "unlocked"}`}>{record.action === "locked" ? "🔒 Locked" : "🔓 Unlocked"}</span></td>
+                      <td>{record.laptopName || "-"}</td>
+                      <td>{record.operatorId || "-"}</td>
+                      <td>{record.operatorName || "-"}</td>
+                      <td style={{ whiteSpace: "normal", minWidth: "220px" }}>{record.reason || "-"}</td>
+                      <td>{record.performedBy || "-"}</td>
+                      <td>{record.performedByRole || "-"}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {showReports && (
         <div
           className="modal-overlay"
@@ -1316,7 +1485,7 @@ const Dashboard = () => {
                 )}
               </>
             ) : (
-              <ZipEnrolmentReports reports={visibleReports} loading={reportsLoading} error={reportsError} coordinators={coordinators} isDistrictCoordinator={isDistrictCoordinator} coordinatorEmail={loggedInCoordinatorEmail} coordinatorName={loggedInCoordinatorName} />
+              <ZipEnrolmentReports reports={visibleReports} loading={reportsLoading} error={reportsError} coordinators={coordinators} isDistrictCoordinator={isDistrictCoordinator} coordinatorEmail={loggedInCoordinatorEmail} coordinatorName={loggedInCoordinatorName} role={role} />
             )}
           </div>
         </div>
@@ -1360,10 +1529,15 @@ const Dashboard = () => {
             </div>
             {missingMisOperators.length === 0 ? <p>All assigned operators have uploaded today’s MIS report.</p> : (
               <div style={{ overflow: "auto", marginTop: "16px" }}>
+                <SelectedOperatorActions
+                  selectedOperators={missingMisOperators.filter((operator) => selectedMissingMisIds.includes(operator.operatorId))}
+                  onClearSelection={() => setSelectedMissingMisIds([])}
+                  canManage={role === "admin" || role === "superAdmin"}
+                />
                 <table style={{ width: "100%" }}>
-                  <thead><tr><th>Sl#</th><th>Operator ID</th><th>Operator Name</th></tr></thead>
+                  <thead><tr><th><input type="checkbox" checked={missingMisOperators.length > 0 && missingMisOperators.every((operator) => selectedMissingMisIds.includes(operator.operatorId))} onChange={() => setSelectedMissingMisIds((selected) => selected.length === missingMisOperators.length ? [] : missingMisOperators.map((operator) => operator.operatorId))} aria-label="Select all operators" /></th><th>Sl#</th><th>Operator ID</th><th>Operator Name</th></tr></thead>
                   <tbody>{missingMisOperators.map((operator, index) => (
-                    <tr key={operator.operatorId}><td>{index + 1}</td><td>{operator.operatorId}</td><td>{displayValue(operator.operatorName)}</td></tr>
+                    <tr key={operator.operatorId}><td><input type="checkbox" checked={selectedMissingMisIds.includes(operator.operatorId)} onChange={() => setSelectedMissingMisIds((selected) => selected.includes(operator.operatorId) ? selected.filter((id) => id !== operator.operatorId) : [...selected, operator.operatorId])} aria-label={`Select ${operator.operatorId}`} /></td><td>{index + 1}</td><td>{operator.operatorId}</td><td>{displayValue(operator.operatorName)}</td></tr>
                   ))}</tbody>
                 </table>
               </div>
