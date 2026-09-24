@@ -1,0 +1,15 @@
+/* District Manager Performance Report table only. */
+.excel-report-table:not(.payment) th,
+.excel-report-table:not(.payment) td {
+  text-align: center;
+}
+
+.excel-report-table:not(.payment) th:first-child,
+.excel-report-table:not(.payment) td:first-child {
+  text-align: left;
+}
+
+/* Keep the heading in place; only lower the Total Operators count slightly. */
+.excel-kpi.teal strong {
+  margin-top: 21px;
+}

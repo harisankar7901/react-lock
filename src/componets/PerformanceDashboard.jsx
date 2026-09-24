@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import api from "../api/api.js";
+import "./PerformanceDashboard.css";
 
 // Static sample data for now. Replace this array with an API response later.
 const districtManagers = [
@@ -181,7 +182,7 @@ export default function PerformanceDashboard({ onClose, onLogout }) {
     <div className="excel-performance-overlay">
       <section className="excel-performance-dashboard" aria-label="District Manager Performance Report">
         <header className="excel-performance-header">
-          <div><h1>District Manager Performance Report</h1><p>District Coordinator operational performance summary</p></div>
+          <div><h1>District Manager Performance Report</h1></div>
           <div className="excel-report-controls">
             <label>From date <input type="date" value={fromDate} max={toDate} onChange={(event) => setFromDate(event.target.value)} /></label>
             <label>To date <input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} /></label>
@@ -207,12 +208,12 @@ export default function PerformanceDashboard({ onClose, onLogout }) {
           <section className="excel-report-card">
             <div className="excel-report-title"><span>District Manager Performance Report</span><small>Data from {fromDate} to {toDate}</small></div>
             <div className="excel-report-grid">
-              <div className="excel-table-wrap"><table className="excel-report-table"><thead><tr><th rowSpan="2">Dist_Manager</th><th rowSpan="2">Total Operator</th><th rowSpan="2">Data Collected</th><th colSpan="2">Operator Data Sync</th><th rowSpan="2">% of Compliance</th></tr><tr><th>OFF Govt. Portal MIS</th><th>EOD MIS Report</th></tr></thead>
-                <tbody>{rows.map((row) => <tr key={row.name}><td>{row.name}</td><td>{row.totalOperators}</td><td>{row.dataCollected}</td><td>{row.offGovtMisCount}</td><td>{row.eodMisCount}</td><td>{row.compliance.toFixed(2)}</td></tr>)}</tbody>
+              <div className="excel-table-wrap"><table className="excel-report-table"><thead><tr><th rowSpan="2">Dist Manager Name</th><th rowSpan="2">Total Operator</th><th rowSpan="2">Data Collected</th><th colSpan="2">Operator Data Sync</th><th rowSpan="2">% of Compliance</th></tr><tr><th>OFF Govt. Portal MIS</th><th>EOD MIS Report</th></tr></thead>
+                <tbody>{rows.map((row) => <tr key={row.name}><td>{String(row.name || "-").toUpperCase()}</td><td>{row.totalOperators}</td><td>{row.dataCollected}</td><td>{row.offGovtMisCount}</td><td>{row.eodMisCount}</td><td>{row.compliance.toFixed(2)}</td></tr>)}</tbody>
                 <tfoot><tr><td>Grand Total</td><td>{reportTotals.totalOperators}</td><td>{reportTotals.dataCollected}</td><td>{reportTotals.offGovtMisCount}</td><td>{reportTotals.eodMisCount}</td><td>{compliance.toFixed(2)}</td></tr></tfoot>
               </table></div>
               <div className="excel-performance-side">
-                <div className="excel-performance-side-title"><span>Performance by District Coordinator</span><small>Data Collected ÷ Total Operators × 100</small></div>
+                <div className="excel-performance-side-title"><span>Performance by District Coordinator</span></div>
                 <div className="excel-performance-legend"><span><i className="good" />On Target (95%+)</span><span><i className="warn" />Needs Push (85–94.9%)</span><span><i className="bad" />At Risk (&lt;85%)</span></div>
                 <div className="excel-performance-list">{performanceRows.map((row, index) => <div className="excel-performance-row" key={row.name}>
                   <b>{index + 1}</b><span title={row.name}>{row.name}<small>District Coordinator</small></span><div><i style={{ width: `${Math.min(row.compliance, 100)}%`, background: performanceColor(row.compliance) }} /></div><strong>{row.compliance.toFixed(1)}%</strong>
