@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import api from '../api/api.js';
 import ZipEnrolmentReports from './ZipEnrolmentReports.jsx';
 import SelectedOperatorActions from './SelectedOperatorActions.jsx';
+import PerformanceDashboard from './PerformanceDashboard.jsx';
 import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -56,6 +57,7 @@ const Dashboard = () => {
   });
   const [savingCoordinator, setSavingCoordinator] = useState(false);
   const [showReports, setShowReports] = useState(false);
+  const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
   const [reports, setReports] = useState([]);
   const [reportTab, setReportTab] = useState("excel");
   const [reportsLoading, setReportsLoading] = useState(false);
@@ -258,6 +260,11 @@ const Dashboard = () => {
     } finally {
       setReportsLoading(false);
     }
+  };
+
+  const openPerformanceDashboard = () => {
+    setShowDropdown(false);
+    setShowPerformanceDashboard(true);
   };
 
   const openMisReportData = async (report) => {
@@ -973,6 +980,17 @@ const Dashboard = () => {
                   💻 Device Registration
                 </button>
               )}
+              {role === "superAdmin" && (
+                <button
+                  onClick={openPerformanceDashboard}
+                  style={{
+                    width: "100%", padding: "10px 14px", textAlign: "left", background: "none",
+                    border: "none", cursor: "pointer", borderBottom: "1px solid #eee",
+                  }}
+                >
+                  📊 Performance Dashboard
+                </button>
+              )}
               {role === "admin" && (
                 <button
                   onClick={openInstallerUploadModal}
@@ -1490,6 +1508,7 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+      {showPerformanceDashboard && <PerformanceDashboard onClose={() => setShowPerformanceDashboard(false)} />}
 
       {showMissingMisModal && (
         <div
@@ -1532,7 +1551,7 @@ const Dashboard = () => {
                 <SelectedOperatorActions
                   selectedOperators={missingMisOperators.filter((operator) => selectedMissingMisIds.includes(operator.operatorId))}
                   onClearSelection={() => setSelectedMissingMisIds([])}
-                  canManage={role === "admin" || role === "superAdmin"}
+                  canManage={role === "admin" || role === "superAdmin" || role === "distCoordinator"}
                 />
                 <table style={{ width: "100%" }}>
                   <thead><tr><th><input type="checkbox" checked={missingMisOperators.length > 0 && missingMisOperators.every((operator) => selectedMissingMisIds.includes(operator.operatorId))} onChange={() => setSelectedMissingMisIds((selected) => selected.length === missingMisOperators.length ? [] : missingMisOperators.map((operator) => operator.operatorId))} aria-label="Select all operators" /></th><th>Sl#</th><th>Operator ID</th><th>Operator Name</th></tr></thead>
