@@ -11,6 +11,7 @@ import AddTask from './componets/AddTask.jsx'
 import ProtectedRoute from './componets/ProtectedRoute.jsx'
 import NewUser from './componets/NewUser.jsx'
 import ResetPassword from './componets/ResetPassword.jsx'
+import DistrictManagerPerformanceReport from './componets/DistrictManagerPerformanceReport.jsx'
 function App() {
   const [count, setCount] = useState(0)
 
@@ -21,7 +22,10 @@ function App() {
        <Route
           path="/dash"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute
+              blockedRoles={["topAdmin"]}
+              redirectTo="/district-manager-performance-report"
+            >
               <Dashboard />
             </ProtectedRoute>
           }
@@ -29,6 +33,14 @@ function App() {
       <Route path="/register" element={<Registration/>}/>
       <Route path="/reset-password" element={<ResetPassword/>}/>
       <Route path="/newUser" element={<NewUser/>}/>
+      <Route
+        path="/district-manager-performance-report"
+        element={
+          <ProtectedRoute allowedRoles={["topAdmin"]}>
+            <DistrictManagerPerformanceReport />
+          </ProtectedRoute>
+        }
+      />
       {/* <Route path="/dash" element={<Dashboard/>}/> */}
        <Route path="/addTask" element={<AddTask/>}/>
     </Routes>

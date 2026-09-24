@@ -34,6 +34,7 @@ const Dashboard = () => {
   const user = sessionStorage.getItem("user");
   const loggedInUser = JSON.parse(user || "{}");
   const role = loggedInUser.role;
+  const isTopAdmin = role === "superAdmin" || role === "topAdmin";
   const isDistrictCoordinator = role === "distCoordinator";
   const loggedInCoordinatorEmail = loggedInUser.email || "";
   const loggedInCoordinatorName = loggedInUser.user || loggedInUser.email || "District Coordinator";
@@ -964,7 +965,7 @@ const Dashboard = () => {
               >
                 ➕ Add Dist Coordinator
               </button>
-              {role === "superAdmin" && (
+              {isTopAdmin && (
                 <button
                   onClick={openDeviceRegistrationModal}
                   style={{
@@ -980,7 +981,7 @@ const Dashboard = () => {
                   💻 Device Registration
                 </button>
               )}
-              {role === "superAdmin" && (
+              {isTopAdmin && (
                 <button
                   onClick={openPerformanceDashboard}
                   style={{
@@ -991,7 +992,7 @@ const Dashboard = () => {
                   📊 Performance Dashboard
                 </button>
               )}
-              {role === "admin" && (
+              {isTopAdmin && (
                 <button
                   onClick={openInstallerUploadModal}
                   style={{
@@ -1007,7 +1008,7 @@ const Dashboard = () => {
                   ⬆️ Install New Version
                 </button>
               )}
-              {(role === "admin" || role === "superAdmin") && (
+              {(role === "admin" || isTopAdmin) && (
                 <button
                   onClick={openLockHistory}
                   style={{
@@ -1130,7 +1131,7 @@ const Dashboard = () => {
                 {loggedInCoordinatorName}
               </span>
             )}
-            {role === "superAdmin" && (
+            {isTopAdmin && (
               <button onClick={loadTodayUsbDevices}>🔌 Show Connected Devices Today</button>
             )}
             <button onClick={fetchDevices}>Refresh</button>
@@ -1230,8 +1231,8 @@ const Dashboard = () => {
                     </td>
                     <td>{device.stationId || "-"}</td>
                     <td>{device.operatorId || "-"}</td>
-                    <td>{device.operatorName || "-"}</td>
-                    {role !== "distCoordinator" && <td>{device.distCoordinatorName || "-"}</td>}
+                    <td>{String(device.operatorName || "-").toUpperCase()}</td>
+                    {role !== "distCoordinator" && <td>{String(device.distCoordinatorName || "-").toUpperCase()}</td>}
                     <td>{device.districtName || "-"}</td>
                     <td>{device.block || "-"}</td>
 
@@ -1285,7 +1286,7 @@ const Dashboard = () => {
                           ✏️ Edit
                         </button>
                         )}
-                        {(role === 'superAdmin' || role === 'admin') && (
+                        {(isTopAdmin || role === 'admin') && (
                           <button
                             onClick={() => handleDeleteDevice(device)}
                             disabled={deletingDeviceId === device._id}
@@ -1551,7 +1552,7 @@ const Dashboard = () => {
                 <SelectedOperatorActions
                   selectedOperators={missingMisOperators.filter((operator) => selectedMissingMisIds.includes(operator.operatorId))}
                   onClearSelection={() => setSelectedMissingMisIds([])}
-                  canManage={role === "admin" || role === "superAdmin" || role === "distCoordinator"}
+                  canManage={role === "admin" || isTopAdmin || role === "distCoordinator"}
                 />
                 <table style={{ width: "100%" }}>
                   <thead><tr><th><input type="checkbox" checked={missingMisOperators.length > 0 && missingMisOperators.every((operator) => selectedMissingMisIds.includes(operator.operatorId))} onChange={() => setSelectedMissingMisIds((selected) => selected.length === missingMisOperators.length ? [] : missingMisOperators.map((operator) => operator.operatorId))} aria-label="Select all operators" /></th><th>Sl#</th><th>Operator ID</th><th>Operator Name</th></tr></thead>

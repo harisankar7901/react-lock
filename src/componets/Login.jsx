@@ -31,7 +31,9 @@ const Login = () => {
             )
             sessionStorage.setItem('token', res.data.token);
             sessionStorage.setItem('user', JSON.stringify(res.data.user));
-            if(res.data.user.role =='admin' ||
+            if (res.data.user.role === 'topAdmin') {
+                navigate('/district-manager-performance-report');
+            } else if(res.data.user.role =='admin' ||
                res.data.user.role =='distCoordinator' ||
                res.data.user.role =='superAdmin'
               ){

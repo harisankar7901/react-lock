@@ -31,7 +31,7 @@ export default function ZipEnrolmentReports({ error, coordinators = [], isDistri
             <button type="submit" style={{ padding: '9px 16px' }}>Search</button>
         </form>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-            <MissingZipReports canManage={role === 'admin' || role === 'superAdmin' || role === 'distCoordinator'} />
+            <MissingZipReports canManage={role === 'admin' || role === 'superAdmin' || role === 'topAdmin' || role === 'distCoordinator'} />
         </div>
         {error && <p role="alert" style={{ color: '#d93025' }}>{error}</p>}
         <ZipEnrolmentSummary reportId="" refreshKey={revision} search={search} />
