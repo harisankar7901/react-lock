@@ -23,7 +23,14 @@ function getToday() {
 function daysInRange(fromDate, toDate) {
   const from = new Date(`${fromDate}T00:00:00Z`);
   const to = new Date(`${toDate}T00:00:00Z`);
-  return Math.max(1, Math.round((to - from) / 86400000) + 1);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) return 0;
+
+  let workingDays = 0;
+  for (const date = new Date(from); date <= to; date.setUTCDate(date.getUTCDate() + 1)) {
+    // Sunday (0) is a holiday and does not count toward compliance.
+    if (date.getUTCDay() !== 0) workingDays += 1;
+  }
+  return workingDays;
 }
 
 function operatorDayCounts(records, dateField) {
@@ -124,8 +131,11 @@ export default function PerformanceDashboard({ onClose, onLogout }) {
             offGovtMisCount: offMisCount,
             eodMisCount,
             totalOperators: assignedTotalOperators,
-            compliance: assignedTotalOperators ? (eodMisCount / (assignedTotalOperators * selectedDayCount)) * 100 : 0,
-            averageCompletion: assignedTotalOperators
+            // Use the same percentage formula as Average Completion.
+            compliance: assignedTotalOperators && selectedDayCount
+              ? ((offMisCount + eodMisCount) / (2 * assignedTotalOperators * selectedDayCount)) * 100
+              : 0,
+            averageCompletion: assignedTotalOperators && selectedDayCount
               ? ((offMisCount + eodMisCount) / (2 * assignedTotalOperators * selectedDayCount)) * 100
               : 0,
           };
@@ -137,7 +147,7 @@ export default function PerformanceDashboard({ onClose, onLogout }) {
         totalOperators,
         offMisOperators,
         eodMisOperators,
-        averageCompletion: totalOperators
+        averageCompletion: totalOperators && selectedDayCount
           ? ((offMisOperators + eodMisOperators) / (2 * totalOperators * selectedDayCount)) * 100
           : 0,
       });
@@ -173,9 +183,15 @@ export default function PerformanceDashboard({ onClose, onLogout }) {
     eodMisCount: sum.eodMisCount + row.eodMisCount,
     totalOperators: sum.totalOperators + row.totalOperators,
   }), { dataCollected: 0, operatorDataSync: 0, offGovtMisCount: 0, eodMisCount: 0, totalOperators: 0 }), [rows]);
-  const compliance = reportTotals.totalOperators ? (reportTotals.dataCollected / (reportTotals.totalOperators * daysInRange(fromDate, toDate))) * 100 : 0;
+  const selectedWorkingDayCount = daysInRange(fromDate, toDate);
+  const compliance = reportTotals.totalOperators && selectedWorkingDayCount
+    ? ((reportTotals.offGovtMisCount + reportTotals.eodMisCount) /
+      (2 * reportTotals.totalOperators * selectedWorkingDayCount)) * 100
+    : 0;
   const averageCompliance = rows.length ? rows.reduce((sum, row) => sum + row.compliance, 0) / rows.length : 0;
-  const atRiskDistricts = performanceRowsData.filter((row) => row.averageCompletion < 85).length;
+  const atRiskDistricts = selectedWorkingDayCount
+    ? performanceRowsData.filter((row) => row.averageCompletion < 85).length
+    : 0;
   const performanceRows = [...rows].sort((left, right) => right.compliance - left.compliance);
 
   return (
