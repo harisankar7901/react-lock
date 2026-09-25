@@ -39,7 +39,7 @@ export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
                         <td>{index + 1}</td><td>{dateLabel(row.date)}</td><td>{row.operatorId || '—'}</td><td>{row.operatorName || '—'}</td>
                         <td>{row.newCount}</td><td>{row.mandatoryFree}</td><td>{row.biometric}</td><td>{row.demography}</td><td>{row.totalData}</td><td>{amount.format(row.totalAmountCharged)}</td><td style={{ color: row.match === true ? '#15803d' : '#b91c1c', fontWeight: 800, fontSize: '18px', textAlign: 'center' }} title={row.match === true ? 'Matched' : 'Does not match'} aria-label={row.match === true ? 'Matched' : 'Does not match'}>{row.match === true ? '✓' : '✕'}</td>
                     </tr>)}</tbody>
-                    <tfoot><tr><td colSpan="4">Cumulative Total</td><td>{cumulativeTotals.newCount}</td><td>{cumulativeTotals.mandatoryFree}</td><td>{cumulativeTotals.biometric}</td><td>{cumulativeTotals.demography}</td><td>{cumulativeTotals.totalData}</td><td>{amount.format(cumulativeTotals.totalAmountCharged)}</td><td></td></tr></tfoot>
+                    <tfoot><tr><td colSpan="4">Cumulative Total</td><td>{cumulativeTotals.newCount}</td><td>{cumulativeTotals.mandatoryFree}</td><td>{cumulativeTotals.biometric}</td><td>{cumulativeTotals.demography}</td><td>{cumulativeTotals.totalData}</td><td style={{ textAlign: 'right' }}>{amount.format(cumulativeTotals.totalAmountCharged)}</td><td></td></tr></tfoot>
                 </table>
             </div>
             {invalidAmounts > 0 && <p>{invalidAmounts} records have a missing or invalid amount. These records are included in Total Data but excluded from the amount sum.</p>}

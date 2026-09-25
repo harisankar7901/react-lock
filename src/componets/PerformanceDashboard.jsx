@@ -56,7 +56,10 @@ function performanceColor(value) {
   return "#d65b52";
 }
 
-export default function PerformanceDashboard({ onClose, onLogout }) {
+export default function PerformanceDashboard({ onClose, onLogout, reportType = "district" }) {
+  const isOperatorReport = reportType === "operator";
+  const reportTitle = isOperatorReport ? "Operator Performance Report" : "District Manager Performance Report";
+  const groupLabel = isOperatorReport ? "Operator" : "District Coordinator";
   const [fromDate, setFromDate] = useState(getToday);
   const [toDate, setToDate] = useState(getToday);
   const [selectedManager, setSelectedManager] = useState("all");
@@ -98,35 +101,47 @@ export default function PerformanceDashboard({ onClose, onLogout }) {
       for (const record of summaryRecords) {
         const operatorId = String(record.operatorId || "").trim();
         if (!operatorId) continue;
-        const current = summaryByOperator.get(operatorId) || { totalData: 0, demography: 0 };
+        const current = summaryByOperator.get(operatorId) || { totalData: 0, totalAmountCharged: 0, demography: 0 };
         current.totalData += Number(record.totalData) || 0;
+        current.totalAmountCharged += Number(record.totalAmountCharged) || 0;
         current.demography += Number(record.demography) || 0;
         summaryByOperator.set(operatorId, current);
       }
 
-      // One operator belongs to one District Coordinator. This avoids counting
-      // a duplicated device record twice in the coordinator totals.
-      const coordinatorOperators = new Map();
+      // Group by District Coordinator for the manager report, or directly by
+      // operator for the Operator Performance Report. Duplicate device records
+      // never cause an operator to be counted twice.
+      const performanceGroups = new Map();
       for (const device of devices) {
         const operatorId = String(device.operatorId || "").trim();
-        const coordinator = String(device.distCoordinatorName || device.coordinatorEmail || device.distCoordinatorMail || "Unassigned").trim() || "Unassigned";
         if (!operatorId) continue;
-        if (!coordinatorOperators.has(coordinator)) coordinatorOperators.set(coordinator, new Set());
-        coordinatorOperators.get(coordinator).add(operatorId);
+        const groupId = isOperatorReport
+          ? operatorId
+          : String(device.distCoordinatorName || device.coordinatorEmail || device.distCoordinatorMail || "Unassigned").trim() || "Unassigned";
+        const groupName = isOperatorReport
+          ? String(device.operatorName || operatorId).trim() || operatorId
+          : groupId;
+        if (!performanceGroups.has(groupId)) {
+          performanceGroups.set(groupId, { id: groupId, name: groupName, operatorIds: new Set() });
+        }
+        performanceGroups.get(groupId).operatorIds.add(operatorId);
       }
 
-      const nextPerformanceRows = [...coordinatorOperators.entries()]
-        .map(([name, assignedOperatorIds]) => {
+      const nextPerformanceRows = [...performanceGroups.values()]
+        .map(({ id, name, operatorIds: assignedOperatorIds }) => {
           const operatorList = [...assignedOperatorIds];
           const operatorDataSync = operatorList.reduce((sum, operatorId) => sum + (summaryByOperator.get(operatorId)?.demography || 0), 0);
+          const totalData = operatorList.reduce((sum, operatorId) => sum + (summaryByOperator.get(operatorId)?.totalData || 0), 0);
+          const totalCollection = operatorList.reduce((sum, operatorId) => sum + (summaryByOperator.get(operatorId)?.totalAmountCharged || 0), 0);
           const assignedTotalOperators = operatorList.length;
           const offMisCount = operatorList.reduce((sum, operatorId) => sum + (offMisCountsByOperator.get(operatorId) || 0), 0);
           const eodMisCount = operatorList.reduce((sum, operatorId) => sum + (eodMisCountsByOperator.get(operatorId) || 0), 0);
           return {
+            id,
             name,
-            // Data Collected is the number of this coordinator's operators
-            // present in the EOD MIS Report summary for the selected date.
-            dataCollected: eodMisCount,
+            // Total Data comes directly from the EOD MIS Report Summary's TOTAL DATA column.
+            dataCollected: totalData,
+            totalCollection,
             operatorDataSync,
             offGovtMisCount: offMisCount,
             eodMisCount,
@@ -157,11 +172,11 @@ export default function PerformanceDashboard({ onClose, onLogout }) {
     });
 
     return () => controller.abort();
-  }, [fromDate, toDate]);
+  }, [fromDate, toDate, reportType]);
 
   const rows = useMemo(() => selectedManager === "all"
     ? performanceRowsData
-    : performanceRowsData.filter((manager) => manager.name === selectedManager), [performanceRowsData, selectedManager]);
+    : performanceRowsData.filter((manager) => manager.id === selectedManager), [performanceRowsData, selectedManager]);
 
   // Payment outstanding remains the static demonstration section for now.
   const paymentRows = districtManagers;
@@ -178,34 +193,35 @@ export default function PerformanceDashboard({ onClose, onLogout }) {
 
   const reportTotals = useMemo(() => rows.reduce((sum, row) => ({
     dataCollected: sum.dataCollected + row.dataCollected,
+    totalCollection: sum.totalCollection + row.totalCollection,
     operatorDataSync: sum.operatorDataSync + row.operatorDataSync,
     offGovtMisCount: sum.offGovtMisCount + row.offGovtMisCount,
     eodMisCount: sum.eodMisCount + row.eodMisCount,
     totalOperators: sum.totalOperators + row.totalOperators,
-  }), { dataCollected: 0, operatorDataSync: 0, offGovtMisCount: 0, eodMisCount: 0, totalOperators: 0 }), [rows]);
+  }), { dataCollected: 0, totalCollection: 0, operatorDataSync: 0, offGovtMisCount: 0, eodMisCount: 0, totalOperators: 0 }), [rows]);
   const selectedWorkingDayCount = daysInRange(fromDate, toDate);
   const compliance = reportTotals.totalOperators && selectedWorkingDayCount
     ? ((reportTotals.offGovtMisCount + reportTotals.eodMisCount) /
       (2 * reportTotals.totalOperators * selectedWorkingDayCount)) * 100
     : 0;
   const averageCompliance = rows.length ? rows.reduce((sum, row) => sum + row.compliance, 0) / rows.length : 0;
-  const atRiskDistricts = selectedWorkingDayCount
+  const atRiskCount = selectedWorkingDayCount
     ? performanceRowsData.filter((row) => row.averageCompletion < 85).length
     : 0;
   const performanceRows = [...rows].sort((left, right) => right.compliance - left.compliance);
 
   return (
     <div className="excel-performance-overlay">
-      <section className="excel-performance-dashboard" aria-label="District Manager Performance Report">
+      <section className="excel-performance-dashboard" aria-label={reportTitle}>
         <header className="excel-performance-header">
-          <div><h1>District Manager Performance Report</h1></div>
+          <div><h1>{reportTitle}</h1></div>
           <div className="excel-report-controls">
             <label>From date <input type="date" value={fromDate} max={toDate} onChange={(event) => setFromDate(event.target.value)} /></label>
             <label>To date <input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} /></label>
-            <label>District Coordinator
+            <label>{groupLabel}
               <select value={selectedManager} onChange={(event) => setSelectedManager(event.target.value)}>
                 <option value="all">All</option>
-                {performanceRowsData.map((manager) => <option key={manager.name} value={manager.name}>{manager.name}</option>)}
+                {performanceRowsData.map((manager) => <option key={manager.id} value={manager.id}>{manager.name}</option>)}
               </select>
             </label>
             {onClose && <button type="button" onClick={onClose}>Close</button>}
@@ -218,28 +234,28 @@ export default function PerformanceDashboard({ onClose, onLogout }) {
             <article className="excel-kpi teal"><span>Total Operators</span><strong>{liveKpis ? liveKpis.totalOperators : "…"}</strong><small>&nbsp;</small><b>OP</b></article>
             <article className="excel-kpi gold"><span>Operators Fulfilled</span><div className="excel-kpi-dual"><label>OFF Govt. data sync count <strong>{liveKpis ? liveKpis.offMisOperators : "…"}</strong></label><label>EOD data sync count <strong>{liveKpis ? liveKpis.eodMisOperators : "…"}</strong></label></div><small>Operator uploads OFF Govt &amp; EOD data</small><b>OK</b></article>
             <article className="excel-kpi blue"><span>Average Completion</span><strong>{liveKpis ? `${liveKpis.averageCompletion.toFixed(1)}%` : "…"}</strong><small>Govt OFF Sync + EOD Sync ÷ Total Operators × 100</small><b>%</b></article>
-            <article className="excel-kpi red"><span>At Risk Districts</span><strong>{atRiskDistricts}</strong><small>Below 85% average completion</small><b>!</b></article>
+            <article className="excel-kpi red"><span>{isOperatorReport ? "At Risk Operator" : "At Risk Districts"}</span><strong>{atRiskCount}</strong><small>Below 85% average completion</small><b>!</b></article>
           </div>
           {kpiError && <p className="excel-kpi-error">{kpiError}</p>}
           <section className="excel-report-card">
-            <div className="excel-report-title"><span>District Manager Performance Report</span><small>Data from {fromDate} to {toDate}</small></div>
+            <div className="excel-report-title"><span>{reportTitle}</span><small>Data from {fromDate} to {toDate}</small></div>
             <div className="excel-report-grid">
-              <div className="excel-table-wrap"><table className="excel-report-table"><thead><tr><th rowSpan="2">Dist Manager Name</th><th rowSpan="2">Total Operator</th><th rowSpan="2">Data Collected</th><th colSpan="2">Operator Data Sync</th><th rowSpan="2">% of Compliance</th></tr><tr><th>OFF Govt. Portal MIS</th><th>EOD MIS Report</th></tr></thead>
-                <tbody>{rows.map((row) => <tr key={row.name}><td>{String(row.name || "-").toUpperCase()}</td><td>{row.totalOperators}</td><td>{row.dataCollected}</td><td>{row.offGovtMisCount}</td><td>{row.eodMisCount}</td><td>{row.compliance.toFixed(2)}</td></tr>)}</tbody>
-                <tfoot><tr><td>Grand Total</td><td>{reportTotals.totalOperators}</td><td>{reportTotals.dataCollected}</td><td>{reportTotals.offGovtMisCount}</td><td>{reportTotals.eodMisCount}</td><td>{compliance.toFixed(2)}</td></tr></tfoot>
+              <div className="excel-table-wrap"><table className="excel-report-table"><thead><tr><th rowSpan="2">{isOperatorReport ? "Operator Name" : "Dist Manager Name"}</th>{!isOperatorReport && <th rowSpan="2">Total Operator</th>}<th rowSpan="2">Total Data</th><th rowSpan="2">Total Collection</th><th colSpan="2">Operator Data Sync</th><th rowSpan="2">% of Compliance</th></tr><tr><th>OFF Govt. Portal MIS</th><th>EOD MIS Report</th></tr></thead>
+                <tbody>{rows.map((row) => <tr key={row.id}><td>{String(row.name || "-").toUpperCase()}</td>{!isOperatorReport && <td>{row.totalOperators}</td>}<td>{row.dataCollected}</td><td>{money(row.totalCollection)}</td><td>{row.offGovtMisCount}</td><td>{row.eodMisCount}</td><td>{row.compliance.toFixed(2)}</td></tr>)}</tbody>
+                <tfoot><tr><td>Grand Total</td>{!isOperatorReport && <td>{reportTotals.totalOperators}</td>}<td>{reportTotals.dataCollected}</td><td>{money(reportTotals.totalCollection)}</td><td>{reportTotals.offGovtMisCount}</td><td>{reportTotals.eodMisCount}</td><td>{compliance.toFixed(2)}</td></tr></tfoot>
               </table></div>
               <div className="excel-performance-side">
-                <div className="excel-performance-side-title"><span>Performance by District Coordinator</span></div>
+                <div className="excel-performance-side-title"><span>Performance by {groupLabel}</span></div>
                 <div className="excel-performance-legend"><span><i className="good" />On Target (95%+)</span><span><i className="warn" />Needs Push (85–94.9%)</span><span><i className="bad" />At Risk (&lt;85%)</span></div>
-                <div className="excel-performance-list">{performanceRows.map((row, index) => <div className="excel-performance-row" key={row.name}>
-                  <b>{index + 1}</b><span title={row.name}>{row.name}<small>District Coordinator</small></span><div><i style={{ width: `${Math.min(row.compliance, 100)}%`, background: performanceColor(row.compliance) }} /></div><strong>{row.compliance.toFixed(1)}%</strong>
+                <div className="excel-performance-list">{performanceRows.map((row, index) => <div className="excel-performance-row" key={row.id}>
+                  <b>{index + 1}</b><span title={row.name}>{row.name}<small>{groupLabel}</small></span><div><i style={{ width: `${Math.min(row.compliance, 100)}%`, background: performanceColor(row.compliance) }} /></div><strong>{row.compliance.toFixed(1)}%</strong>
                 </div>)}</div>
               </div>
             </div>
           </section>
 
-          <section className="excel-report-card">
-            <div className="excel-report-title"><span>District Manager Payment Outstanding Report</span><small>Collection and balance summary</small></div>
+          {!isOperatorReport && <section className="excel-report-card">
+            <div className="excel-report-title"><span>{isOperatorReport ? "Operator Payment Outstanding Report" : "District Manager Payment Outstanding Report"}</span><small>Collection and balance summary</small></div>
             <div className="excel-report-grid">
               <div className="excel-table-wrap"><table className="excel-report-table payment"><thead><tr><th>Dist_Coordi</th><th>Count of Total</th><th>Sum of Total Collection</th><th>Pending Amount</th><th>Balance Need to Pay</th></tr></thead>
                 {SHOW_PAYMENT_OUTSTANDING_DATA && <><tbody>{paymentRows.map((row) => <tr key={row.name}><td>{row.name}</td><td>{row.countOfTotal}</td><td>{money(row.totalCollection)}</td><td className="excel-danger">{money(row.pendingAmount)}</td><td className="excel-danger">{money(row.balanceToPay)}</td></tr>)}</tbody>
@@ -247,7 +263,7 @@ export default function PerformanceDashboard({ onClose, onLogout }) {
               </table></div>
               <div className="excel-bar-panel">{SHOW_PAYMENT_OUTSTANDING_DATA && <><div className="excel-chart-label"><span>Collection comparison</span><small>Count and total collection</small></div><div className="excel-bar-chart">{paymentRows.map((row) => <div className="excel-bar-row" key={row.name}><span title={row.name}>{row.name.split(" ").slice(0, 2).join(" ")}</span><div><i className="count" style={{ width: `${(row.countOfTotal / Math.max(...paymentRows.map((item) => item.countOfTotal))) * 100}%` }} /><b className="collection" style={{ width: `${(row.totalCollection / Math.max(...paymentRows.map((item) => item.totalCollection))) * 100}%` }} /></div><strong>{row.countOfTotal} / {money(row.totalCollection)}</strong></div>)}</div><div className="excel-bar-key"><span><i /> Count of Total</span><span><b /> Sum of Total Collection</span></div></>}</div>
             </div>
-          </section>
+          </section>}
           <p className="excel-report-note">Static sample report. Database integration will replace these figures later.</p>
         </main>
       </section>

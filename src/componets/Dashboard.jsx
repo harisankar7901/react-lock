@@ -27,6 +27,10 @@ const Dashboard = () => {
   const [lockHistory, setLockHistory] = useState([]);
   const [lockHistoryLoading, setLockHistoryLoading] = useState(false);
   const [lockHistoryError, setLockHistoryError] = useState("");
+  const [showUserList, setShowUserList] = useState(false);
+  const [users, setUsers] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [usersError, setUsersError] = useState("");
   const [deletingDeviceId, setDeletingDeviceId] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const [coordinators, setCoordinators] = useState([]);
@@ -34,6 +38,7 @@ const Dashboard = () => {
   const user = sessionStorage.getItem("user");
   const loggedInUser = JSON.parse(user || "{}");
   const role = loggedInUser.role;
+  const roleLabel = String(role || "Unknown").replace(/([A-Z])/g, " $1").trim();
   const isTopAdmin = role === "superAdmin" || role === "topAdmin";
   const isDistrictCoordinator = role === "distCoordinator";
   const loggedInCoordinatorEmail = loggedInUser.email || "";
@@ -59,6 +64,7 @@ const Dashboard = () => {
   const [savingCoordinator, setSavingCoordinator] = useState(false);
   const [showReports, setShowReports] = useState(false);
   const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
+  const [showOperatorPerformanceReport, setShowOperatorPerformanceReport] = useState(false);
   const [reports, setReports] = useState([]);
   const [reportTab, setReportTab] = useState("excel");
   const [reportsLoading, setReportsLoading] = useState(false);
@@ -119,6 +125,21 @@ const Dashboard = () => {
     setImageFileName("");
     setImageCaption("");
     setMessageError("");
+  };
+
+  const openUserList = async () => {
+    setShowUserList(true);
+    setUsersLoading(true);
+    setUsersError("");
+    try {
+      const response = await api.get("auth/users/full");
+      setUsers(response.data?.data || []);
+    } catch (error) {
+      setUsers([]);
+      setUsersError(error.response?.data?.message || "Could not load the user list.");
+    } finally {
+      setUsersLoading(false);
+    }
   };
 
   const closeMessageModal = (force = false) => {
@@ -266,6 +287,11 @@ const Dashboard = () => {
   const openPerformanceDashboard = () => {
     setShowDropdown(false);
     setShowPerformanceDashboard(true);
+  };
+
+  const openOperatorPerformanceReport = () => {
+    setShowDropdown(false);
+    setShowOperatorPerformanceReport(true);
   };
 
   const openMisReportData = async (report) => {
@@ -913,8 +939,12 @@ const Dashboard = () => {
       {/* Header */}
       <div
         className="dashboard-header"
-        style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}
       >
+
+        <div style={{ position: "absolute", top: "2px", left: 0, color: "#1e3a5f", fontSize: "12px", fontWeight: 700, textTransform: "uppercase" }}>
+          Role: {roleLabel}
+        </div>
 
         <div style={{ textAlign: "center", flex: 1 }}>
           <h1>Device Dashboard</h1>
@@ -925,6 +955,12 @@ const Dashboard = () => {
           <div style={{ fontWeight: 600, whiteSpace: "nowrap", color: "#1e3a5f" }}>
             Devices: {totalDevices} / {maxDeviceAllowed}
           </div>
+
+          {role === "superAdmin" && (
+            <button onClick={openUserList} id="userListId" type="button" style={{ padding: "10px 14px", display:'none' }}>
+              👥 User List
+            </button>
+          )}
 
           <div className="admin-menu" style={{ position: "relative" }}>
             <div
@@ -992,6 +1028,17 @@ const Dashboard = () => {
                   📊 Performance Dashboard
                 </button>
               )}
+              {/* {isDistrictCoordinator && (
+                <button
+                  onClick={openOperatorPerformanceReport}
+                  style={{
+                    width: "100%", padding: "10px 14px", textAlign: "left", background: "none",
+                    border: "none", cursor: "pointer", borderBottom: "1px solid #eee",
+                  }}
+                >
+                  📈 Operator Performance Report
+                </button>
+              )} */}
               {isTopAdmin && (
                 <button
                   onClick={openInstallerUploadModal}
@@ -1509,7 +1556,47 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+      {showUserList && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowUserList(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "1100px", maxWidth: "94%", maxHeight: "82vh", display: "flex", flexDirection: "column" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "16px" }}>
+              <h2 style={{ margin: 0 }}>User List</h2>
+              <button onClick={() => setShowUserList(false)} type="button">Close</button>
+            </div>
+            {usersError && <p role="alert" style={{ color: "#d93025" }}>{usersError}</p>}
+            {usersLoading ? <p>Loading users...</p> : !usersError && (
+              <div style={{ overflow: "auto" }}>
+                <table className="device-table" style={{ minWidth: "1120px" }}>
+                  <thead><tr><th>User ID</th><th>Name</th><th>Email</th><th>Password</th><th>Role</th><th>Device ID</th><th>District Name</th></tr></thead>
+                  <tbody>
+                    {users.length === 0 ? <tr><td colSpan="7" className="no-data">No users found</td></tr> : users.map((listedUser) => (
+                      <tr key={listedUser._id}>
+                        <td>{listedUser._id || "-"}</td>
+                        <td>{listedUser.name || "-"}</td>
+                        <td>{listedUser.email || "-"}</td>
+                        <td>{listedUser.password || "-"}</td>
+                        <td>{listedUser.role || "-"}</td>
+                        <td>{listedUser.deviceId || "-"}</td>
+                        <td>{listedUser.districtName || "-"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {showPerformanceDashboard && <PerformanceDashboard onClose={() => setShowPerformanceDashboard(false)} />}
+      {showOperatorPerformanceReport && <PerformanceDashboard reportType="operator" onClose={() => setShowOperatorPerformanceReport(false)} />}
 
       {showMissingMisModal && (
         <div
