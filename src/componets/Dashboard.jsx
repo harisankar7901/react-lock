@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from '../api/api.js';
 import ZipEnrolmentReports from './ZipEnrolmentReports.jsx';
 import SelectedOperatorActions from './SelectedOperatorActions.jsx';
@@ -33,6 +33,7 @@ const Dashboard = () => {
   const [usersError, setUsersError] = useState("");
   const [deletingDeviceId, setDeletingDeviceId] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
+  const menuRef = useRef(null);
   const [coordinators, setCoordinators] = useState([]);
   const navigate = useNavigate();
   const user = sessionStorage.getItem("user");
@@ -105,6 +106,19 @@ const Dashboard = () => {
   const [dynamicKey, setDynamicKey] = useState("");
   const [sendingKey, setSendingKey] = useState(false);
   const [keyError, setKeyError] = useState("");
+
+  useEffect(() => {
+    if (!showDropdown) return undefined;
+
+    const closeMenuOnOutsideClick = (event) => {
+      if (!menuRef.current?.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", closeMenuOnOutsideClick);
+    return () => document.removeEventListener("mousedown", closeMenuOnOutsideClick);
+  }, [showDropdown]);
 
   const openMessageModal = (device) => {
     setMessageDevice(device);
@@ -962,7 +976,7 @@ const Dashboard = () => {
             </button>
           )}
 
-          <div className="admin-menu" style={{ position: "relative" }}>
+          <div ref={menuRef} className="admin-menu" style={{ position: "relative" }}>
             <div
               className="admin"
               onClick={() => setShowDropdown((prev) => !prev)}
