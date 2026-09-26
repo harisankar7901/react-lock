@@ -982,7 +982,7 @@ const Dashboard = () => {
                 border: "1px solid #ddd",
                 borderRadius: "6px",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                minWidth: "140px",
+                minWidth: "240px",
                 zIndex: 10,
               }}
             >
@@ -1028,7 +1028,7 @@ const Dashboard = () => {
                   📊 Performance Dashboard
                 </button>
               )}
-              {/* {isDistrictCoordinator && (
+              {isDistrictCoordinator && (
                 <button
                   onClick={openOperatorPerformanceReport}
                   style={{
@@ -1038,7 +1038,7 @@ const Dashboard = () => {
                 >
                   📈 Operator Performance Report
                 </button>
-              )} */}
+              )}
               {isTopAdmin && (
                 <button
                   onClick={openInstallerUploadModal}
