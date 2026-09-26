@@ -6,12 +6,18 @@ const dateLabel = value => value ? value.split('-').reverse().join('/') : '—';
 
 export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
     const [response, setResponse] = useState(null);
+    const [matchFilter, setMatchFilter] = useState('all');
     const key = `${reportId}:${refreshKey}:${JSON.stringify(search || {})}`;
     const busy = response?.key !== key;
     const rows = busy ? [] : response?.rows || [];
+    const filteredRows = rows.filter(row => {
+        if (matchFilter === 'matched') return row.match === true;
+        if (matchFilter === 'unmatched') return row.match !== true;
+        return true;
+    });
     const unmatched = busy ? [] : response?.unmatched || [];
-    const invalidAmounts = rows.reduce((total, row) => total + row.invalidAmountCount, 0);
-    const cumulativeTotals = rows.reduce((total, row) => ({
+    const invalidAmounts = filteredRows.reduce((total, row) => total + row.invalidAmountCount, 0);
+    const cumulativeTotals = filteredRows.reduce((total, row) => ({
         newCount: total.newCount + (Number(row.newCount) || 0),
         mandatoryFree: total.mandatoryFree + (Number(row.mandatoryFree) || 0),
         biometric: total.biometric + (Number(row.biometric) || 0),
@@ -30,12 +36,20 @@ export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
 
     return <section aria-label="EOD MIS Report summary" style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #dbe3ed' }}>
         <h3 style={{ margin: '0 0 8px' }}>EOD MIS Report summary</h3>
-        <p style={{ margin: '0 0 12px', color: '#475569' }}>All matching records, grouped by date and operator.</p>
-        {busy ? <p role="status">Loading summary...</p> : response?.error ? <p role="alert" style={{ color: '#d93025' }}>{response.error}</p> : !rows.length ? <p>No records to summarize.</p> : <>
+        <p style={{ margin: '0 0 12px', color: '#475569' }}>Records are grouped by date and operator.</p>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 12, fontWeight: 600 }}>
+            Match status
+            <select value={matchFilter} onChange={event => setMatchFilter(event.target.value)} aria-label="Filter EOD MIS Report summary by match status">
+                <option value="all">All records</option>
+                <option value="matched">Matched only</option>
+                <option value="unmatched">Unmatched only</option>
+            </select>
+        </label>
+        {busy ? <p role="status">Loading summary...</p> : response?.error ? <p role="alert" style={{ color: '#d93025' }}>{response.error}</p> : !rows.length ? <p>No records to summarize.</p> : !filteredRows.length ? <p>No {matchFilter === 'matched' ? 'matched' : 'unmatched'} records found.</p> : <>
             <div className="mis-report-table-scroll" style={{ overflow: 'auto', maxHeight: '40vh' }}>
                 <table className="mis-report-table" style={{ whiteSpace: 'nowrap' }}>
                     <thead><tr><th>SL Number</th><th>DATE</th><th>OPERATOR_ID</th><th>Operator Name</th><th>NEW</th><th>MANDATORY FREE</th><th>BIOMETRIC</th><th>DEMOGRAPHY</th><th>TOTAL DATA</th><th>TOTAL_AMOUNT_CHARGED</th><th>Match</th></tr></thead>
-                    <tbody>{rows.map((row, index) => <tr key={JSON.stringify([row.date, row.operatorId])}>
+                    <tbody>{filteredRows.map((row, index) => <tr key={JSON.stringify([row.date, row.operatorId])}>
                         <td>{index + 1}</td><td>{dateLabel(row.date)}</td><td>{row.operatorId || '—'}</td><td>{row.operatorName || '—'}</td>
                         <td>{row.newCount}</td><td>{row.mandatoryFree}</td><td>{row.biometric}</td><td>{row.demography}</td><td>{row.totalData}</td><td>{amount.format(row.totalAmountCharged)}</td><td style={{ color: row.match === true ? '#15803d' : '#b91c1c', fontWeight: 800, fontSize: '18px', textAlign: 'center' }} title={row.match === true ? 'Matched' : 'Does not match'} aria-label={row.match === true ? 'Matched' : 'Does not match'}>{row.match === true ? '✓' : '✕'}</td>
                     </tr>)}</tbody>

@@ -40,6 +40,7 @@ const Dashboard = () => {
   const loggedInUser = JSON.parse(user || "{}");
   const role = loggedInUser.role;
   const roleLabel = String(role || "Unknown").replace(/([A-Z])/g, " $1").trim();
+  const loggedInUserName = loggedInUser.user || loggedInUser.name || loggedInUser.email || "User";
   const isTopAdmin = role === "superAdmin" || role === "topAdmin";
   const isDistrictCoordinator = role === "distCoordinator";
   const loggedInCoordinatorEmail = loggedInUser.email || "";
@@ -956,10 +957,6 @@ const Dashboard = () => {
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}
       >
 
-        <div style={{ position: "absolute", top: "2px", left: 0, color: "#1e3a5f", fontSize: "12px", fontWeight: 700, textTransform: "uppercase" }}>
-          Role: {roleLabel}
-        </div>
-
         <div style={{ textAlign: "center", flex: 1 }}>
           <h1>Device Dashboard</h1>
           <p>Manage and monitor registered laptops</p>
@@ -976,14 +973,15 @@ const Dashboard = () => {
             </button>
           )}
 
-          <div ref={menuRef} className="admin-menu" style={{ position: "relative" }}>
-            <div
-              className="admin"
-              onClick={() => setShowDropdown((prev) => !prev)}
-              style={{ cursor: "pointer" }}
-            >
-              Menu ▾
-            </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "5px" }}>
+            <div ref={menuRef} className="admin-menu" style={{ position: "relative" }}>
+              <div
+                className="admin"
+                onClick={() => setShowDropdown((prev) => !prev)}
+                style={{ cursor: "pointer" }}
+              >
+                Menu ▾
+              </div>
 
             {showDropdown && (
               <div
@@ -1116,6 +1114,11 @@ const Dashboard = () => {
               </button>
               </div>
             )}
+            </div>
+            <div style={{ color: "#1e3a5f", fontSize: "11px", lineHeight: 1.25, textAlign: "right", whiteSpace: "nowrap" }}>
+              <strong>{loggedInUserName}</strong>
+              <span style={{ display: "block", textTransform: "uppercase" }}>{roleLabel}</span>
+            </div>
           </div>
         </div>
       </div>
