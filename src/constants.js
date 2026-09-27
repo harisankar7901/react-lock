@@ -2,8 +2,9 @@
 // A relative API path works for both HTTP and HTTPS through the Nginx proxy.
 export const API_BASE_URL = "/api/";
 
-export const MAX_DEVICE_ALLOWED = 200;
+export const MAX_DEVICE_ALLOWED = 500;
 
 // Set to false when ZIP reports should be visible again.
 export const HIDE_REPORT_ZIP_TAB = false;
 export const SHOW_All_REPORT = true;
+export const SHOW_COMPANY_LOGO = true

@@ -5,6 +5,15 @@
   align-items: center;
   background: #f4f6f8;
   padding: 20px;
+  position: relative;
+}
+
+.login-company-logo {
+  position: absolute;
+  top: 22px;
+  left: 24px;
+  width: min(260px, calc(100vw - 48px));
+  height: auto;
 }
 
 .login-card {

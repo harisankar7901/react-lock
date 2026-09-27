@@ -6,7 +6,8 @@ import PerformanceDashboard from './PerformanceDashboard.jsx';
 import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { HIDE_REPORT_ZIP_TAB, MAX_DEVICE_ALLOWED,SHOW_All_REPORT } from "../constants.js";
+import { HIDE_REPORT_ZIP_TAB, MAX_DEVICE_ALLOWED, SHOW_All_REPORT, SHOW_COMPANY_LOGO } from "../constants.js";
+import computerLabLogo from "../assets/companyLogo.jpeg";
 const getTodayForDateInput = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -850,7 +851,7 @@ const Dashboard = () => {
       distCoordinatorName: device.distCoordinatorName || "",
       districtName: device.districtName || "",
       block: device.block || "",
-      coordinatorEmail: device.coordinatorEmail || "", // NEW
+      coordinatorEmail: device.coordinatorEmail || device.distCoordinatorMail || "", // NEW
     });
   };
 
@@ -976,24 +977,25 @@ const Dashboard = () => {
         className="dashboard-header"
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}
       >
+        {SHOW_COMPANY_LOGO && <img className="dashboard-company-logo" src={computerLabLogo} alt="Computer Lab" />}
 
         <div style={{ textAlign: "center", flex: 1 }}>
           <h1>Device Dashboard</h1>
           <p>Manage and monitor registered laptops</p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-          <div style={{ fontWeight: 600, whiteSpace: "nowrap", color: "#1e3a5f" }}>
-            Devices: {totalDevices} / {maxDeviceAllowed}
-          </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "5px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            <div style={{ fontWeight: 600, whiteSpace: "nowrap", color: "#1e3a5f" }}>
+              Devices: {totalDevices} / {maxDeviceAllowed}
+            </div>
 
-          {role === "superAdmin" && (
-            <button onClick={openUserList} id="userListId" type="button" style={{ padding: "10px 14px", display:'none' }}>
-              👥 User List
-            </button>
-          )}
+            {role === "superAdmin" && (
+              <button onClick={openUserList} id="userListId" type="button" style={{ padding: "10px 14px", display:'none' }}>
+                👥 User List
+              </button>
+            )}
 
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "5px" }}>
             <div ref={menuRef} className="admin-menu" style={{ position: "relative" }}>
               <div
                 className="admin"
@@ -1135,11 +1137,11 @@ const Dashboard = () => {
               </div>
             )}
             </div>
+          </div>
             <div style={{ color: "#1e3a5f", fontSize: "11px", lineHeight: 1.25, textAlign: "right", whiteSpace: "nowrap" }}>
               <strong>{loggedInUserName}</strong>
               <span style={{ display: "block", textTransform: "uppercase" }}>{roleLabel}</span>
             </div>
-          </div>
         </div>
       </div>
 
@@ -1354,7 +1356,7 @@ const Dashboard = () => {
                           🗑️ Send Uninstall Key
                         </button>
 
-                        {role !== 'distCoordinator' && (
+                        {(role === 'admin' || isTopAdmin || role === 'distCoordinator') && (
                         <button
                           className="edit-btn"
                           onClick={() => openEditModal(device)}
@@ -1370,7 +1372,7 @@ const Dashboard = () => {
                           ✏️ Edit
                         </button>
                         )}
-                        {(isTopAdmin || role === 'admin') && (
+                        {isTopAdmin && (
                           <button
                             onClick={() => handleDeleteDevice(device)}
                             disabled={deletingDeviceId === device._id}
@@ -1965,34 +1967,47 @@ const Dashboard = () => {
                 />
               </label>
 
-              <label>
-                District Coordinator (select by email)
-                <select
-                  name="coordinatorEmail"
-                  value={editForm.coordinatorEmail}
-                  onChange={handleCoordinatorSelect}
-                  style={{ width: "100%", padding: "8px", marginTop: "4px" }}
-                >
-                  <option value="">-- Select coordinator --</option>
-                  {coordinators.map((c) => (
-                    <option key={c._id} value={c.email}>
-                      {c.email} {c.name ? `(${c.name})` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              {isDistrictCoordinator ? (
+                <label>
+                  District Coordinator
+                  <input
+                    type="text"
+                    value={editForm.distCoordinatorName || loggedInCoordinatorName}
+                    readOnly
+                    style={{ width: "100%", padding: "8px", marginTop: "4px", background: "#f5f5f5" }}
+                  />
+                </label>
+              ) : (
+                <>
+                  <label>
+                    District Coordinator (select by email)
+                    <select
+                      name="coordinatorEmail"
+                      value={editForm.coordinatorEmail}
+                      onChange={handleCoordinatorSelect}
+                      style={{ width: "100%", padding: "8px", marginTop: "4px" }}
+                    >
+                      <option value="">-- Select coordinator --</option>
+                      {coordinators.map((c) => (
+                        <option key={c._id} value={c.email}>
+                          {c.email} {c.name ? `(${c.name})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
 
-              {/* Auto-filled, shown read-only for confirmation */}
-              <label>
-                District Coordinator Name
-                <input
-                  type="text"
-                  name="distCoordinatorName"
-                  value={editForm.distCoordinatorName}
-                  readOnly
-                  style={{ width: "100%", padding: "8px", marginTop: "4px", background: "#f5f5f5" }}
-                />
-              </label>
+                  <label>
+                    District Coordinator Name
+                    <input
+                      type="text"
+                      name="distCoordinatorName"
+                      value={editForm.distCoordinatorName}
+                      readOnly
+                      style={{ width: "100%", padding: "8px", marginTop: "4px", background: "#f5f5f5" }}
+                    />
+                  </label>
+                </>
+              )}
 
               <label>
                 District Name

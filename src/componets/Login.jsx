@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Login.css";
 import api from '../api/api.js';
+import computerLabLogo from "../assets/companyLogo.jpeg";
+import { SHOW_COMPANY_LOGO } from "../constants.js";
 const Login = () => {
   const navigate = useNavigate();
 
@@ -69,6 +71,7 @@ const Login = () => {
 
   return (
     <div className="login-page">
+      {SHOW_COMPANY_LOGO && <img className="login-company-logo" src={computerLabLogo} alt="Computer Lab" />}
       <div className="login-card">
         <h2 className="login-title">Log In</h2>
 
