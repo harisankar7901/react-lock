@@ -71,8 +71,8 @@ const Login = () => {
 
   return (
     <div className="login-page">
-      {SHOW_COMPANY_LOGO && <img className="login-company-logo" src={computerLabLogo} alt="Computer Lab" />}
       <div className="login-card">
+        {SHOW_COMPANY_LOGO && <img className="login-company-logo" src={computerLabLogo} alt="Computer Lab" />}
         <h2 className="login-title">Log In</h2>
 
         <form className="login-form" onSubmit={onLogIn}>
