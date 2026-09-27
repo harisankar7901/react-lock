@@ -31,6 +31,7 @@ const Dashboard = () => {
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
+  const [deletingUserId, setDeletingUserId] = useState(null);
   const [deletingDeviceId, setDeletingDeviceId] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const menuRef = useRef(null);
@@ -154,6 +155,25 @@ const Dashboard = () => {
       setUsersError(error.response?.data?.message || "Could not load the user list.");
     } finally {
       setUsersLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (listedUser) => {
+    const userName = listedUser.name || listedUser.email || "this user";
+    if (!window.confirm(`Delete ${userName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setDeletingUserId(listedUser._id);
+      setUsersError("");
+      await api.delete(`auth/users/${listedUser._id}`);
+      setUsers((currentUsers) => currentUsers.filter((currentUser) => currentUser._id !== listedUser._id));
+    } catch (error) {
+      console.error("Delete user error:", error);
+      setUsersError(error.response?.data?.message || "Unable to delete the user.");
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -1591,10 +1611,10 @@ const Dashboard = () => {
             {usersError && <p role="alert" style={{ color: "#d93025" }}>{usersError}</p>}
             {usersLoading ? <p>Loading users...</p> : !usersError && (
               <div style={{ overflow: "auto" }}>
-                <table className="device-table" style={{ minWidth: "1120px" }}>
-                  <thead><tr><th>User ID</th><th>Name</th><th>Email</th><th>Password</th><th>Role</th><th>Device ID</th><th>District Name</th></tr></thead>
+                <table className="device-table" style={{ minWidth: "1220px" }}>
+                  <thead><tr><th>User ID</th><th>Name</th><th>Email</th><th>Password</th><th>Role</th><th>Device ID</th><th>District Name</th><th>Action</th></tr></thead>
                   <tbody>
-                    {users.length === 0 ? <tr><td colSpan="7" className="no-data">No users found</td></tr> : users.map((listedUser) => (
+                    {users.length === 0 ? <tr><td colSpan="8" className="no-data">No users found</td></tr> : users.map((listedUser) => (
                       <tr key={listedUser._id}>
                         <td>{listedUser._id || "-"}</td>
                         <td>{listedUser.name || "-"}</td>
@@ -1603,6 +1623,17 @@ const Dashboard = () => {
                         <td>{listedUser.role || "-"}</td>
                         <td>{listedUser.deviceId || "-"}</td>
                         <td>{listedUser.districtName || "-"}</td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(listedUser)}
+                            disabled={deletingUserId === listedUser._id || String(listedUser.email || "").toLowerCase() === String(loggedInUser.email || "").toLowerCase()}
+                            title={String(listedUser.email || "").toLowerCase() === String(loggedInUser.email || "").toLowerCase() ? "You cannot delete your own account" : "Delete this user"}
+                            style={{ padding: "6px 12px", borderRadius: "6px", border: "none", background: "#dc2626", color: "#fff", cursor: deletingUserId === listedUser._id ? "wait" : "pointer" }}
+                          >
+                            {deletingUserId === listedUser._id ? "Deleting..." : "🗑️ Delete"}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
