@@ -59,7 +59,7 @@ function performanceColor(value) {
 export default function PerformanceDashboard({ onClose, onLogout, reportType = "district" }) {
   const isOperatorReport = reportType === "operator";
   const reportTitle = isOperatorReport ? "Operator Performance Report" : "District Manager Performance Report";
-  const groupLabel = isOperatorReport ? "Operator" : "District Coordinator";
+  const groupLabel = isOperatorReport ? "Operator" : "District Manager";
   const [fromDate, setFromDate] = useState(getToday);
   const [toDate, setToDate] = useState(getToday);
   const [selectedManager, setSelectedManager] = useState("all");

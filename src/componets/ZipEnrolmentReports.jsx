@@ -21,9 +21,9 @@ export default function ZipEnrolmentReports({ error, coordinators = [], isDistri
             <label>To date<input type="date" name="toDate" required value={draft.toDate} min={draft.fromDate || undefined} onChange={update} style={inputStyle} /></label>
             <label>Operator ID<input type="text" name="operatorId" value={draft.operatorId} placeholder="Search operator ID" onChange={update} style={inputStyle} /></label>
             <label>Operator Name<input type="text" name="operatorName" value={draft.operatorName} placeholder="Search operator name" onChange={update} style={inputStyle} /></label>
-            <label>Dist. Coordinator
+            <label>Dist. Manager
                 <select name="coordinatorEmail" value={draft.coordinatorEmail} disabled={isDistrictCoordinator} onChange={update} style={{ ...inputStyle, minWidth: 190, background: isDistrictCoordinator ? '#f3f4f6' : '#fff' }}>
-                    {!isDistrictCoordinator && <option value="">All District Coordinators</option>}
+                    {!isDistrictCoordinator && <option value="">All District Managers</option>}
                     {isDistrictCoordinator && !coordinators.some(coordinator => coordinator.email === coordinatorEmail) && <option value={coordinatorEmail}>{coordinatorName || coordinatorEmail}</option>}
                     {coordinators.map(coordinator => <option key={coordinator._id || coordinator.email} value={coordinator.email}>{coordinator.name || coordinator.email}</option>)}
                 </select>

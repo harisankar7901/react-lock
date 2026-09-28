@@ -46,7 +46,7 @@ const Dashboard = () => {
   const isTopAdmin = role === "superAdmin" || role === "topAdmin";
   const isDistrictCoordinator = role === "distCoordinator";
   const loggedInCoordinatorEmail = loggedInUser.email || "";
-  const loggedInCoordinatorName = loggedInUser.user || loggedInUser.email || "District Coordinator";
+  const loggedInCoordinatorName = loggedInUser.user || loggedInUser.email || "District Manager";
   const [showAddCoordinator, setShowAddCoordinator] = useState(false);
   const [showDeviceRegistration, setShowDeviceRegistration] = useState(false);
   const [showInstallerUpload, setShowInstallerUpload] = useState(false);
@@ -602,12 +602,12 @@ const Dashboard = () => {
 
       await api.post('auth/users/dist-coordinator', coordinatorForm);
 
-      alert("District Coordinator added successfully");
+      alert("District Manager added successfully");
       closeAddCoordinatorModal();
     } catch (error) {
       console.error("Add dist coordinator error:", error);
       alert(
-        error.response?.data?.message || "Unable to add district coordinator"
+        error.response?.data?.message || "Unable to add district manager"
       );
     } finally {
       setSavingCoordinator(false);
@@ -1033,7 +1033,7 @@ const Dashboard = () => {
                   display: role =='distCoordinator' ? 'none' :'block'
                 }}
               >
-                ➕ Add Dist Coordinator
+                ➕ Add Dist Manager
               </button>
               {isTopAdmin && (
                 <button
@@ -1191,8 +1191,8 @@ const Dashboard = () => {
                 <option value="online">Online</option>
                 <option value="offline">Offline</option>
               </optgroup>
-              <optgroup label="District Coordinator">
-                <option value="coordinator-assigned">Has District Coordinator</option>
+              <optgroup label="District Manager">
+                <option value="coordinator-assigned">Has District Manager</option>
                 {coordinators.map((coordinator) => (
                   <option
                     key={coordinator._id || coordinator.email || coordinator.name}
@@ -1249,7 +1249,7 @@ const Dashboard = () => {
                 <th>Station ID</th>
                 <th>Operator ID</th>
                 <th>Operator Name</th>
-                {role !== "distCoordinator" && <th>Dist. Coordinator</th>}
+                {role !== "distCoordinator" && <th>Dist. Manager</th>}
                 <th>District Name</th>
                 <th>Block</th>
                 <th>Action</th>
@@ -1540,7 +1540,7 @@ const Dashboard = () => {
                     <input type="text" value={misOperatorName} onChange={(event) => setMisOperatorName(event.target.value)} placeholder="Search operator name" style={{ display: "block", marginTop: "5px", padding: "8px" }} />
                   </label>
                   <label>
-                    Dist. Coordinator
+                    Dist. Manager
                     <select
                       value={misCoordinatorEmail}
                       disabled={isDistrictCoordinator}
@@ -1551,7 +1551,7 @@ const Dashboard = () => {
                       }}
                       style={{ display: "block", marginTop: "5px", padding: "8px", minWidth: "190px", background: isDistrictCoordinator ? "#f3f4f6" : "#fff", cursor: isDistrictCoordinator ? "not-allowed" : "pointer" }}
                     >
-                      {!isDistrictCoordinator && <option value="">All District Coordinators</option>}
+                      {!isDistrictCoordinator && <option value="">All District Managers</option>}
                       {coordinators.map((coordinator) => (
                         <option key={coordinator._id || coordinator.email} value={coordinator.email}>
                           {coordinator.name || coordinator.email}
@@ -1969,7 +1969,7 @@ const Dashboard = () => {
 
               {isDistrictCoordinator ? (
                 <label>
-                  District Coordinator
+                  District Manager
                   <input
                     type="text"
                     value={editForm.distCoordinatorName || loggedInCoordinatorName}
@@ -1980,14 +1980,14 @@ const Dashboard = () => {
               ) : (
                 <>
                   <label>
-                    District Coordinator (select by email)
+                    District Manager (select by email)
                     <select
                       name="coordinatorEmail"
                       value={editForm.coordinatorEmail}
                       onChange={handleCoordinatorSelect}
                       style={{ width: "100%", padding: "8px", marginTop: "4px" }}
                     >
-                      <option value="">-- Select coordinator --</option>
+                      <option value="">-- Select manager --</option>
                       {coordinators.map((c) => (
                         <option key={c._id} value={c.email}>
                           {c.email} {c.name ? `(${c.name})` : ""}
@@ -1997,7 +1997,7 @@ const Dashboard = () => {
                   </label>
 
                   <label>
-                    District Coordinator Name
+                    District Manager Name
                     <input
                       type="text"
                       name="distCoordinatorName"
@@ -2090,7 +2090,7 @@ const Dashboard = () => {
             onClick={(e) => e.stopPropagation()}
             style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "400px", maxWidth: "90%" }}
           >
-            <h2 style={{ marginTop: 0 }}>Add District Coordinator</h2>
+            <h2 style={{ marginTop: 0 }}>Add District Manager</h2>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <label>
@@ -2154,7 +2154,7 @@ const Dashboard = () => {
                 disabled={savingCoordinator}
                 style={{ padding: "8px 16px", borderRadius: "6px", border: "none", background: "#2563eb", color: "#fff", cursor: "pointer" }}
               >
-                {savingCoordinator ? "Creating..." : "Create Coordinator"}
+                {savingCoordinator ? "Creating..." : "Create Manager"}
               </button>
             </div>
           </div>
