@@ -56,6 +56,20 @@ function performanceColor(value) {
   return "#d65b52";
 }
 
+function getActiveManagerForDevice(device, managers) {
+  const deviceManagerValues = [
+    device.distCoordinatorName,
+    device.coordinatorEmail,
+    device.distCoordinatorMail,
+  ].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean);
+
+  return managers.find((manager) => {
+    const managerName = String(manager.name || "").trim().toLowerCase();
+    const managerEmail = String(manager.email || "").trim().toLowerCase();
+    return deviceManagerValues.includes(managerName) || deviceManagerValues.includes(managerEmail);
+  }) || null;
+}
+
 export default function PerformanceDashboard({ onClose, onLogout, reportType = "district" }) {
   const isOperatorReport = reportType === "operator";
   const reportTitle = isOperatorReport ? "Operator Performance Report" : "District Manager Performance Report";
@@ -82,13 +96,20 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
         params: { fromDate, toDate },
         signal: controller.signal,
       }),
-    ]).then(([devicesResponse, summaryResponse, offMisResponse]) => {
+      api.get("auth/users/dist-coordinators", { signal: controller.signal }),
+    ]).then(([devicesResponse, summaryResponse, offMisResponse, managersResponse]) => {
       if (controller.signal.aborted) return;
       const devices = devicesResponse.data?.data || [];
       const summaryRecords = summaryResponse.data?.data || [];
       const offMisRecords = offMisResponse.data?.data || [];
+      const activeManagers = managersResponse.data?.data || [];
       const selectedDayCount = daysInRange(fromDate, toDate);
-      const operatorIds = new Set(devices
+      // District reports contain only devices assigned to an active manager.
+      // This excludes any assignment left behind by a deleted manager account.
+      const reportDevices = isOperatorReport
+        ? devices
+        : devices.filter((device) => getActiveManagerForDevice(device, activeManagers));
+      const operatorIds = new Set(reportDevices
         .map((device) => String(device.operatorId || "").trim())
         .filter(Boolean));
       const totalOperators = operatorIds.size;
@@ -112,15 +133,22 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
       // operator for the Operator Performance Report. Duplicate device records
       // never cause an operator to be counted twice.
       const performanceGroups = new Map();
-      for (const device of devices) {
+      for (const device of reportDevices) {
         const operatorId = String(device.operatorId || "").trim();
         if (!operatorId) continue;
+        const activeManager = !isOperatorReport
+          ? getActiveManagerForDevice(device, activeManagers)
+          : null;
+
+        // Only active District Managers appear in this report.
+        if (!isOperatorReport && !activeManager) continue;
+
         const groupId = isOperatorReport
           ? operatorId
-          : String(device.distCoordinatorName || device.coordinatorEmail || device.distCoordinatorMail || "Unassigned").trim() || "Unassigned";
+          : String(activeManager.email || activeManager.name).trim();
         const groupName = isOperatorReport
           ? String(device.operatorName || operatorId).trim() || operatorId
-          : groupId;
+          : String(activeManager.name || activeManager.email).trim();
         if (!performanceGroups.has(groupId)) {
           performanceGroups.set(groupId, { id: groupId, name: groupName, operatorIds: new Set() });
         }

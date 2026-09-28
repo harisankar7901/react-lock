@@ -617,6 +617,7 @@ const Dashboard = () => {
   // Edit modal state
   const [editingDevice, setEditingDevice] = useState(null); // holds the device being edited
   const [editForm, setEditForm] = useState({
+    computerName: "",
     stationId: "",
     operatorId: "",
     operatorName: "",
@@ -845,6 +846,7 @@ const Dashboard = () => {
   const openEditModal = (device) => {
     setEditingDevice(device);
     setEditForm({
+      computerName: String(device.laptopName || device.userName || "").trim().replace(/\$+$/, ""),
       stationId: device.stationId || "",
       operatorId: device.operatorId || "",
       operatorName: device.operatorName || "",
@@ -880,7 +882,7 @@ const Dashboard = () => {
       setDevices((prevDevices) =>
         prevDevices.map((item) =>
           item._id === editingDevice._id
-            ? { ...item, ...editForm }
+            ? { ...item, ...(result.data || {}) }
             : item
         )
       );
@@ -1934,6 +1936,22 @@ const Dashboard = () => {
             </h2>
 
             <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {role === "superAdmin" && (
+                <label>
+                  Laptop Name
+                  <input
+                    type="text"
+                    name="computerName"
+                    value={editForm.computerName}
+                    onChange={handleEditFormChange}
+                    placeholder="Example: 02298-OCCL3508"
+                    style={{ width: "100%", padding: "8px", marginTop: "4px" }}
+                  />
+                  <small style={{ display: "block", marginTop: "4px", color: "#64748b" }}>
+                    The trailing $ is added automatically.
+                  </small>
+                </label>
+              )}
               <label>
                 Station ID
                 <input
