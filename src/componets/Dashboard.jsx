@@ -1219,7 +1219,7 @@ const Dashboard = () => {
                 {loggedInCoordinatorName}
               </span>
             )}
-            {isTopAdmin && (
+            {(isTopAdmin || (role === "superAdmin") )&& (
               <button onClick={loadTodayUsbDevices}>🔌 Show Connected Devices Today</button>
             )}
             <button onClick={fetchDevices}>Refresh</button>
