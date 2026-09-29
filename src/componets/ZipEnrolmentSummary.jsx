@@ -63,11 +63,13 @@ export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
             <p>Missing totals are blank. Zero means a submitted total of zero.</p>
             {!unmatched.length ? <p>No unmatched records.</p> : <div className="mis-report-table-scroll" style={{ overflow: 'auto', maxHeight: '40vh' }}>
                 <table className="mis-report-table" style={{ whiteSpace: 'nowrap' }}>
-                    <thead><tr><th>SL NO</th><th>Date</th><th>Operator ID</th><th>Operator Name</th><th>Dist_Cor_Name</th><th>OFF_Mis_Total</th><th>EOD TOTAL</th></tr></thead>
+                    <thead><tr><th>SL NO</th><th>Date</th><th>Operator ID</th><th>Operator Name</th><th>Dist_Cor_Name</th><th>OFF_Mis_Total</th><th>EOD TOTAL</th><th>OFF TOTAL COLLECTION</th><th>EOD_TOTAL_AMOUNT_CHARGED</th></tr></thead>
                     <tbody>{unmatched.map((row, index) => <tr key={JSON.stringify([row.date, row.operatorId, index])}>
                         <td>{index + 1}</td><td>{dateLabel(row.date)}</td><td>{row.operatorId}</td><td>{row.operatorName}</td><td>{row.distCorName}</td>
                         <td title={row.misNew == null ? 'No MIS New count' : 'MIS New: ' + row.misNew}>{row.misTotal ?? ''}</td>
                         <td title={row.summaryNew == null ? 'No ZIP New count' : 'Summary New: ' + row.summaryNew}>{row.summaryTotal ?? ''}</td>
+                        <td>{row.offTotalCollection == null ? '' : amount.format(row.offTotalCollection)}</td>
+                        <td>{row.eodTotalAmountCharged == null ? '' : amount.format(row.eodTotalAmountCharged)}</td>
                     </tr>)}</tbody>
                 </table>
             </div>}
