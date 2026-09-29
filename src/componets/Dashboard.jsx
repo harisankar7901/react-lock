@@ -701,19 +701,18 @@ const Dashboard = () => {
     }
   };
 
-  const loadTodayUsbDevices = async (date = usbSelectedDate) => {
+  const loadTodayUsbDevices = async () => {
     setUsbTodayRecords([]);
     setUsbTodayDate("");
     setUsbTodayError("");
     setShowUsbTodayModal(true);
     setUsbTodayLoading(true);
     try {
-      const response = await api.get("devices/usb-devices/daily", { params: { date } });
+      const response = await api.get("devices/usb-devices");
       setUsbTodayRecords(response.data.data?.records || []);
-      setUsbTodayDate(response.data.data?.date || date);
     } catch (error) {
       console.error("Fetch today's USB devices error:", error);
-      setUsbTodayError(error.response?.data?.message || "Unable to load today's connected USB devices.");
+      setUsbTodayError(error.response?.data?.message || "Unable to load connected USB devices.");
     } finally {
       setUsbTodayLoading(false);
     }
@@ -1220,7 +1219,7 @@ const Dashboard = () => {
               </span>
             )}
             {(isTopAdmin || (role === "superAdmin") )&& (
-              <button onClick={loadTodayUsbDevices}>🔌 Show Connected Devices Today</button>
+              <button onClick={loadTodayUsbDevices}>🔌 Show Connected Devices</button>
             )}
             <button onClick={fetchDevices}>Refresh</button>
           </div>
@@ -1717,38 +1716,18 @@ const Dashboard = () => {
             style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "1480px", maxWidth: "96%", maxHeight: "80vh", display: "flex", flexDirection: "column" }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
-              <h2 style={{ margin: 0 }}>Connected USB Devices — {usbTodayDate || "Today"}</h2>
+              <h2 style={{ margin: 0 }}>Connected USB Devices</h2>
               <button onClick={() => setShowUsbTodayModal(false)}>Close</button>
             </div>
-            <div style={{ display: "flex", alignItems: "end", gap: "10px", marginTop: "16px" }}>
-              <label>
-                Date
-                <input
-                  type="date"
-                  value={usbSelectedDate}
-                  max={getTodayForDateInput()}
-                  onChange={(event) => setUsbSelectedDate(event.target.value)}
-                  style={{ display: "block", marginTop: "5px", padding: "8px" }}
-                />
-              </label>
-              <button
-                onClick={() => loadTodayUsbDevices(usbSelectedDate)}
-                disabled={!usbSelectedDate || usbTodayLoading}
-                style={{ padding: "9px 16px" }}
-              >
-                {usbTodayLoading ? "Loading..." : "Search"}
-              </button>
-            </div>
-            {usbTodayLoading ? <p>Loading connected USB devices...</p> : usbTodayError ? <p style={{ color: "#d93025" }}>{usbTodayError}</p> : usbTodayRecords.length === 0 ? <p>No USB devices were detected for the selected date.</p> : (
+            {usbTodayLoading ? <p>Loading connected USB devices...</p> : usbTodayError ? <p style={{ color: "#d93025" }}>{usbTodayError}</p> : usbTodayRecords.length === 0 ? <p>No connected USB devices have been recorded yet.</p> : (
               <div style={{ overflow: "auto", marginTop: "16px" }}>
                 <table style={{ width: "100%", minWidth: "1320px", borderCollapse: "collapse" }}>
-                  <thead><tr><th>Laptop Unique ID</th><th>Operator ID</th><th>OPR_Name</th><th>District Manager Name</th><th>Laptop Serial Number</th><th>USB1</th><th>USB2</th><th>USB3</th><th>USB4</th><th>USB5</th></tr></thead>
+                  <thead><tr><th>Operator ID</th><th>OPR_Name</th><th>District Manager Name</th><th>Laptop Serial Number</th><th>USB1</th><th>USB2</th><th>USB3</th><th>USB4</th><th>USB5</th></tr></thead>
                   <tbody>{usbTodayRecords.map(record => {
                     const device = record.device || {};
                     const externalDevices = (record.devices || []).slice(0, 5);
                     return (
                       <tr key={record.deviceId}>
-                        <td style={{ wordBreak: "break-all" }}>{record.deviceId}</td>
                         <td>{displayValue(device.operatorId)}</td>
                         <td>{displayValue(device.operatorName)}</td>
                         <td>{displayValue(device.distCoordinatorName)}</td>
