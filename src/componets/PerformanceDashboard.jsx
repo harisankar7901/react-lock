@@ -13,6 +13,8 @@ const districtManagers = [
 
 // Keep the Payment Outstanding section blank until its live data is connected.
 const SHOW_PAYMENT_OUTSTANDING_DATA = false;
+// Keep the complete Payment Outstanding section hidden for now.
+const SHOW_PAYMENT_OUTSTANDING_SECTION = false;
 
 function getToday() {
   const date = new Date();
@@ -282,7 +284,7 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
             </div>
           </section>
 
-          {!isOperatorReport && <section className="excel-report-card">
+          {!isOperatorReport && SHOW_PAYMENT_OUTSTANDING_SECTION && <section className="excel-report-card">
             <div className="excel-report-title"><span>{isOperatorReport ? "Operator Payment Outstanding Report" : "District Manager Payment Outstanding Report"}</span><small>Collection and balance summary</small></div>
             <div className="excel-report-grid">
               <div className="excel-table-wrap"><table className="excel-report-table payment"><thead><tr><th>Dist_Coordi</th><th>Count of Total</th><th>Sum of Total Collection</th><th>Pending Amount</th><th>Balance Need to Pay</th></tr></thead>
