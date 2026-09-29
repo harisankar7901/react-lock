@@ -91,6 +91,7 @@ const Dashboard = () => {
   const [showMissingMisModal, setShowMissingMisModal] = useState(false);
   const [selectedMissingMisIds, setSelectedMissingMisIds] = useState([]);
   const [showUsbTodayModal, setShowUsbTodayModal] = useState(false);
+  const [showLaptopSerialNumbers, setShowLaptopSerialNumbers] = useState(false);
   const [usbTodayRecords, setUsbTodayRecords] = useState([]);
   const [usbTodayDate, setUsbTodayDate] = useState("");
   const [usbSelectedDate, setUsbSelectedDate] = useState(getTodayForDateInput);
@@ -323,6 +324,11 @@ const Dashboard = () => {
   const openPerformanceDashboard = () => {
     setShowDropdown(false);
     setShowPerformanceDashboard(true);
+  };
+
+  const openLaptopSerialNumberList = () => {
+    setShowDropdown(false);
+    setShowLaptopSerialNumbers(true);
   };
 
   const openOperatorPerformanceReport = () => {
@@ -1054,6 +1060,17 @@ const Dashboard = () => {
               )}
               {isTopAdmin && (
                 <button
+                  onClick={openLaptopSerialNumberList}
+                  style={{
+                    width: "100%", padding: "10px 14px", textAlign: "left", background: "none",
+                    border: "none", cursor: "pointer", borderBottom: "1px solid #eee",
+                  }}
+                >
+                  🔢 Show Laptop Serial Number
+                </button>
+              )}
+              {isTopAdmin && (
+                <button
                   onClick={openPerformanceDashboard}
                   style={{
                     width: "100%", padding: "10px 14px", textAlign: "left", background: "none",
@@ -1750,6 +1767,43 @@ const Dashboard = () => {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showLaptopSerialNumbers && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowLaptopSerialNumbers(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "960px", maxWidth: "96%", maxHeight: "80vh", display: "flex", flexDirection: "column" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+              <h2 style={{ margin: 0 }}>Laptop Serial Numbers</h2>
+              <button onClick={() => setShowLaptopSerialNumbers(false)}>Close</button>
+            </div>
+            <div style={{ overflow: "auto", marginTop: "16px" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr><th>Sl#</th><th>Laptop Serial Number</th><th>Operator ID</th><th>Operator Name</th><th>District Manager Name</th></tr></thead>
+                <tbody>{devices
+                  .filter((device) => String(device.laptopSerialNumber || "").trim())
+                  .sort((left, right) => String(left.laptopSerialNumber || "").localeCompare(String(right.laptopSerialNumber || "")))
+                  .map((device, index) => (
+                    <tr key={device._id || device.deviceId}>
+                      <td>{index + 1}</td>
+                      <td>{displayValue(device.laptopSerialNumber)}</td>
+                      <td>{displayValue(device.operatorId)}</td>
+                      <td>{displayValue(device.operatorName)}</td>
+                      <td>{displayValue(device.distCoordinatorName)}</td>
+                    </tr>
+                  ))}</tbody>
+              </table>
+              {!devices.some((device) => String(device.laptopSerialNumber || "").trim()) && <p>No laptop serial numbers have been saved yet.</p>}
+            </div>
           </div>
         </div>
       )}
