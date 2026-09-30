@@ -401,6 +401,17 @@ td small {
   border-right: 1px solid #c7d4e5;
 }
 
+/* The validation table has two header rows. Keep both visible while scrolling. */
+.validation-report-table thead tr:first-child th {
+  top: 0;
+  z-index: 4;
+}
+
+.validation-report-table thead tr:nth-child(2) th {
+  top: 40px;
+  z-index: 3;
+}
+
 .validation-report-table th:first-child,
 .validation-report-table td:first-child {
   border-left: 1px solid #c7d4e5;
