@@ -394,10 +394,27 @@ td small {
   background: #f8fbff;
 }
 
-/* Validation Report: center every grouped header and table value. */
+/* Validation Report: centered metrics with readable identity columns and grid borders. */
 .validation-report-table th,
 .validation-report-table td {
   text-align: center;
+  border-right: 1px solid #c7d4e5;
+}
+
+.validation-report-table th:first-child,
+.validation-report-table td:first-child {
+  border-left: 1px solid #c7d4e5;
+}
+
+.validation-report-table thead tr:first-child th:nth-child(4),
+.validation-report-table thead tr:first-child th:nth-child(5),
+.validation-report-table td:nth-child(4),
+.validation-report-table td:nth-child(5) {
+  text-align: left;
+}
+
+.validation-report-table td:nth-child(n + 6) {
+  font-weight: 700;
 }
 
 .mis-report-table tbody tr:hover {
