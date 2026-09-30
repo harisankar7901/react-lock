@@ -69,7 +69,7 @@ export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
           <th rowSpan="2">Date</th>
           <th rowSpan="2">Operator ID</th>
           <th rowSpan="2">Operator Name</th>
-          <th rowSpan="2">Dist_Cor_Name</th>
+          <th rowSpan="2">Dist Manager Name</th>
           <th colSpan="2" style={{ background: '#facc15', color: '#111' }}>OFF PORTAL INFORMATION</th>
           <th colSpan="2" style={{ background: '#8bc34a', color: '#111' }}>EOD INFORMATION</th>
         </tr>
