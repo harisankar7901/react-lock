@@ -394,6 +394,12 @@ td small {
   background: #f8fbff;
 }
 
+/* Validation Report: center every grouped header and table value. */
+.validation-report-table th,
+.validation-report-table td {
+  text-align: center;
+}
+
 .mis-report-table tbody tr:hover {
   background: #eaf3ff;
 }

@@ -62,7 +62,7 @@ export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
             <h3>Validation Report : OFF MIS vs EOD MIS</h3>
             <p>Missing totals are blank. Zero means a submitted total of zero.</p>
             {!unmatched.length ? <p>No unmatched records.</p> : <div className="mis-report-table-scroll" style={{ overflow: 'auto', maxHeight: '40vh' }}>
-                <table className="mis-report-table" style={{ whiteSpace: 'nowrap' }}>
+                <table className="mis-report-table validation-report-table" style={{ whiteSpace: 'nowrap' }}>
       <thead>
         <tr>
           <th rowSpan="2">SL NO</th>
