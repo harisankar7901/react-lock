@@ -38,7 +38,7 @@ const Dashboard = () => {
   const menuRef = useRef(null);
   const [coordinators, setCoordinators] = useState([]);
   const navigate = useNavigate();
-  const user = sessionStorage.getItem("user");
+  const user = localStorage.getItem("user");
   const loggedInUser = JSON.parse(user || "{}");
   const role = loggedInUser.role;
   const roleLabel = String(role || "Unknown").replace(/([A-Z])/g, " $1").trim();
@@ -648,8 +648,8 @@ const Dashboard = () => {
   };
 
   const handleLogout = () => {
-    sessionStorage.removeItem("token");
-    sessionStorage.removeItem("user");
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
 
     if (api.defaults?.headers?.common?.Authorization) {
       delete api.defaults.headers.common.Authorization;

@@ -2,12 +2,12 @@ import React from "react";
 import { Navigate } from "react-router-dom";
 
 const ProtectedRoute = ({ children, allowedRoles, blockedRoles, redirectTo = "/dash" }) => {
-  const token = sessionStorage.getItem("token");
+  const token = localStorage.getItem("token");
   if (!token) {
     return <Navigate to="/" replace />;
   }
 
-  const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
   if (
     (allowedRoles && !allowedRoles.includes(user.role)) ||
     blockedRoles?.includes(user.role)

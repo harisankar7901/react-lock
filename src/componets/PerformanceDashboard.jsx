@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api/api.js";
 import "./PerformanceDashboard.css";
 
@@ -20,6 +20,23 @@ function getToday() {
   const date = new Date();
   date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
   return date.toISOString().slice(0, 10);
+}
+
+function getCurrentMonth() {
+  return getToday().slice(0, 7);
+}
+
+function getMonthDateRange(month) {
+  const match = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!match) return { fromDate: getToday(), toDate: getToday() };
+
+  const year = Number(match[1]);
+  const monthNumber = Number(match[2]);
+  const lastDay = new Date(Date.UTC(year, monthNumber, 0)).getUTCDate();
+  const fromDate = `${month}-01`;
+  const monthEndDate = `${month}-${String(lastDay).padStart(2, "0")}`;
+  // The current month only includes days up to today; completed months use their full range.
+  return { fromDate, toDate: month === getCurrentMonth() ? getToday() : monthEndDate };
 }
 
 function daysInRange(fromDate, toDate) {
@@ -76,12 +93,42 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
   const isOperatorReport = reportType === "operator";
   const reportTitle = isOperatorReport ? "Operator Performance Report" : "District Manager Performance Report";
   const groupLabel = isOperatorReport ? "Operator" : "District Manager";
-  const [fromDate, setFromDate] = useState(getToday);
-  const [toDate, setToDate] = useState(getToday);
+  const dashboardRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
+  const [fromDate, setFromDate] = useState(() => getMonthDateRange(getCurrentMonth()).fromDate);
+  const [toDate, setToDate] = useState(() => getMonthDateRange(getCurrentMonth()).toDate);
   const [selectedManager, setSelectedManager] = useState("all");
   const [liveKpis, setLiveKpis] = useState(null);
   const [kpiError, setKpiError] = useState("");
   const [performanceRowsData, setPerformanceRowsData] = useState([]);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+
+  const selectMonth = (month) => {
+    setSelectedMonth(month);
+    const range = getMonthDateRange(month);
+    setFromDate(range.fromDate);
+    setToDate(range.toDate);
+  };
+
+  useEffect(() => {
+    const syncFullscreenState = () => setIsFullscreen(document.fullscreenElement === dashboardRef.current);
+    document.addEventListener("fullscreenchange", syncFullscreenState);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreenState);
+  }, []);
+
+  useEffect(() => {
+    const refreshTimer = window.setInterval(() => setRefreshVersion((version) => version + 1), 30 * 60 * 1000);
+    return () => window.clearInterval(refreshTimer);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+      return;
+    }
+    await dashboardRef.current?.requestFullscreen();
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -106,6 +153,10 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
       const offMisRecords = offMisResponse.data?.data || [];
       const activeManagers = managersResponse.data?.data || [];
       const selectedDayCount = daysInRange(fromDate, toDate);
+      const onlineDeviceCount = devices.filter((device) => device.connectionStatus === "online").length;
+      const lockedDeviceCount = devices.filter((device) =>
+        device.lock === true || String(device.status || "").toLowerCase() === "true"
+      ).length;
       // District reports contain only devices assigned to an active manager.
       // This excludes any assignment left behind by a deleted manager account.
       const reportDevices = isOperatorReport
@@ -190,6 +241,8 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
       setPerformanceRowsData(nextPerformanceRows);
       setLiveKpis({
         totalOperators,
+        onlineDeviceCount,
+        lockedDeviceCount,
         offMisOperators,
         eodMisOperators,
         averageCompletion: totalOperators && selectedDayCount
@@ -202,7 +255,7 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
     });
 
     return () => controller.abort();
-  }, [fromDate, toDate, reportType]);
+  }, [fromDate, toDate, reportType, refreshVersion]);
 
   const rows = useMemo(() => selectedManager === "all"
     ? performanceRowsData
@@ -242,18 +295,26 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
 
   return (
     <div className="excel-performance-overlay">
-      <section className="excel-performance-dashboard" aria-label={reportTitle}>
+      <section ref={dashboardRef} className="excel-performance-dashboard" aria-label={reportTitle}>
         <header className="excel-performance-header">
           <div><h1>{reportTitle}</h1></div>
+          <div className="excel-header-device-counts" aria-label="Device status counts">
+            <span>Online Devices <b>{liveKpis ? liveKpis.onlineDeviceCount : "…"}</b></span>
+            <span>Locked Devices <b>{liveKpis ? liveKpis.lockedDeviceCount : "…"}</b></span>
+          </div>
           <div className="excel-report-controls">
-            <label>From date <input type="date" value={fromDate} max={toDate} onChange={(event) => setFromDate(event.target.value)} /></label>
-            <label>To date <input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} /></label>
-            <label>{groupLabel}
-              <select value={selectedManager} onChange={(event) => setSelectedManager(event.target.value)}>
-                <option value="all">All</option>
-                {performanceRowsData.map((manager) => <option key={manager.id} value={manager.id}>{manager.name}</option>)}
-              </select>
-            </label>
+            <label>Month <input type="month" value={selectedMonth} onChange={(event) => selectMonth(event.target.value)} /></label>
+            {!isFullscreen && <>
+              <label>From date <input type="date" value={fromDate} max={toDate} onChange={(event) => setFromDate(event.target.value)} /></label>
+              <label>To date <input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} /></label>
+              <label>{groupLabel}
+                <select value={selectedManager} onChange={(event) => setSelectedManager(event.target.value)}>
+                  <option value="all">All</option>
+                  {performanceRowsData.map((manager) => <option key={manager.id} value={manager.id}>{manager.name}</option>)}
+                </select>
+              </label>
+            </>}
+            <button type="button" onClick={toggleFullscreen}>{isFullscreen ? "Exit full screen" : "Full screen"}</button>
             {onClose && <button type="button" onClick={onClose}>Close</button>}
             {onLogout && <button type="button" onClick={onLogout}>Logout</button>}
           </div>
@@ -294,7 +355,6 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
               <div className="excel-bar-panel">{SHOW_PAYMENT_OUTSTANDING_DATA && <><div className="excel-chart-label"><span>Collection comparison</span><small>Count and total collection</small></div><div className="excel-bar-chart">{paymentRows.map((row) => <div className="excel-bar-row" key={row.name}><span title={row.name}>{row.name.split(" ").slice(0, 2).join(" ")}</span><div><i className="count" style={{ width: `${(row.countOfTotal / Math.max(...paymentRows.map((item) => item.countOfTotal))) * 100}%` }} /><b className="collection" style={{ width: `${(row.totalCollection / Math.max(...paymentRows.map((item) => item.totalCollection))) * 100}%` }} /></div><strong>{row.countOfTotal} / {money(row.totalCollection)}</strong></div>)}</div><div className="excel-bar-key"><span><i /> Count of Total</span><span><b /> Sum of Total Collection</span></div></>}</div>
             </div>
           </section>}
-          <p className="excel-report-note">Static sample report. Database integration will replace these figures later.</p>
         </main>
       </section>
     </div>
