@@ -95,9 +95,12 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
   const groupLabel = isOperatorReport ? "Operator" : "District Manager";
   const dashboardRef = useRef(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [filterMode, setFilterMode] = useState("month");
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth);
   const [fromDate, setFromDate] = useState(() => getMonthDateRange(getCurrentMonth()).fromDate);
   const [toDate, setToDate] = useState(() => getMonthDateRange(getCurrentMonth()).toDate);
+  const [customFromDate, setCustomFromDate] = useState(() => getMonthDateRange(getCurrentMonth()).fromDate);
+  const [customToDate, setCustomToDate] = useState(() => getMonthDateRange(getCurrentMonth()).toDate);
   const [selectedManager, setSelectedManager] = useState("all");
   const [liveKpis, setLiveKpis] = useState(null);
   const [kpiError, setKpiError] = useState("");
@@ -105,10 +108,22 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
   const [refreshVersion, setRefreshVersion] = useState(0);
 
   const selectMonth = (month) => {
+    setFilterMode("month");
     setSelectedMonth(month);
     const range = getMonthDateRange(month);
     setFromDate(range.fromDate);
     setToDate(range.toDate);
+  };
+
+  const applyCustomDateRange = () => {
+    if (!customFromDate || !customToDate || customFromDate > customToDate) {
+      setKpiError("Choose a valid From date and To date.");
+      return;
+    }
+    setKpiError("");
+    setFilterMode("dateRange");
+    setFromDate(customFromDate);
+    setToDate(customToDate);
   };
 
   useEffect(() => {
@@ -303,10 +318,26 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
             <span>Locked Devices <b>{liveKpis ? liveKpis.lockedDeviceCount : "…"}</b></span>
           </div>
           <div className="excel-report-controls">
-            <label>Month <input type="month" value={selectedMonth} onChange={(event) => selectMonth(event.target.value)} /></label>
+            <label>Search by
+              <select
+                value={filterMode}
+                onChange={(event) => {
+                  const mode = event.target.value;
+                  if (mode === "month") selectMonth(selectedMonth);
+                  else setFilterMode("dateRange");
+                }}
+              >
+                <option value="month">Month</option>
+                <option value="dateRange">Date range</option>
+              </select>
+            </label>
+            {filterMode === "month" && <label>Month <input type="month" value={selectedMonth} onChange={(event) => selectMonth(event.target.value)} /></label>}
             {!isFullscreen && <>
-              <label>From date <input type="date" value={fromDate} max={toDate} onChange={(event) => setFromDate(event.target.value)} /></label>
-              <label>To date <input type="date" value={toDate} min={fromDate} onChange={(event) => setToDate(event.target.value)} /></label>
+              {filterMode === "dateRange" && <>
+                <label>From date <input type="date" value={customFromDate} max={customToDate} onChange={(event) => setCustomFromDate(event.target.value)} /></label>
+                <label>To date <input type="date" value={customToDate} min={customFromDate} onChange={(event) => setCustomToDate(event.target.value)} /></label>
+                <button type="button" onClick={applyCustomDateRange}>Search</button>
+              </>}
               <label>{groupLabel}
                 <select value={selectedManager} onChange={(event) => setSelectedManager(event.target.value)}>
                   <option value="all">All</option>
