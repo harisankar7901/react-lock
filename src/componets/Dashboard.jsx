@@ -926,6 +926,8 @@ const Dashboard = () => {
       if (deviceFilter === "unlocked") return !isLocked;
       if (deviceFilter === "online") return device.connectionStatus === "online";
       if (deviceFilter === "offline") return device.connectionStatus !== "online";
+      if (deviceFilter === "active") return device.isActive !== false;
+      if (deviceFilter === "inactive") return device.isActive === false;
       if (deviceFilter === "coordinator-assigned") {
         return Boolean(device.coordinatorEmail || device.distCoordinatorMail || device.distCoordinatorName);
       }
@@ -1232,6 +1234,10 @@ const Dashboard = () => {
                 <option value="online">Online</option>
                 <option value="offline">Offline</option>
               </optgroup>
+              <optgroup label="Device Status">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </optgroup>
               <optgroup label="District Manager">
                 <option value="coordinator-assigned">Has District Manager</option>
                 {coordinators.map((coordinator) => (
@@ -1327,7 +1333,7 @@ const Dashboard = () => {
                 </tr>
               ) : (
                 filteredDevices.map((device) => (
-                  <tr key={device._id}>
+                  <tr key={device._id} className={device.isActive === false ? "device-row-inactive" : ""}>
                     <td style={{ textAlign: "center" }}>
                       <input
                         type="checkbox"

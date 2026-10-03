@@ -170,6 +170,11 @@
   transition: background 0.16s ease, box-shadow 0.16s ease;
 }
 
+/* Keep disabled devices readable while making their inactive state obvious. */
+.device-table tbody tr.device-row-inactive {
+  opacity: 0.52;
+}
+
 .device-table tbody tr:hover {
   background: #edf5ff;
   box-shadow: inset 3px 0 0 #2563eb;
