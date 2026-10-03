@@ -20,6 +20,7 @@ const Dashboard = () => {
   const [deviceFilter, setDeviceFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState(null);
+  const [updatingSelectedDeviceStatus, setUpdatingSelectedDeviceStatus] = useState(false);
   const [lockReasonDevice, setLockReasonDevice] = useState(null);
   const [lockReasonAction, setLockReasonAction] = useState("lock");
   const [lockReason, setLockReason] = useState("");
@@ -946,6 +947,9 @@ const Dashboard = () => {
     .filter(Boolean);
   const allFilteredDevicesSelected = selectedFilteredDeviceIds.length > 0 &&
     selectedFilteredDeviceIds.every((deviceId) => selectedDeviceIds.includes(deviceId));
+  const hasInactiveSelectedDevice = devices.some((device) =>
+    selectedDeviceIds.includes(device.deviceId) && device.isActive === false
+  );
 
   const toggleDeviceSelection = (deviceId) => {
     setSelectedDeviceIds((previous) => previous.includes(deviceId)
@@ -960,6 +964,25 @@ const Dashboard = () => {
       }
       return [...new Set([...previous, ...selectedFilteredDeviceIds])];
     });
+  };
+
+  const updateSelectedDeviceStatus = async (isActive) => {
+    if (!selectedDeviceIds.length || updatingSelectedDeviceStatus) return;
+    const action = isActive ? "enable" : "disable";
+    if (!window.confirm(`${action === "disable" ? "Disable" : "Enable"} ${selectedDeviceIds.length} selected device(s)?`)) return;
+
+    try {
+      setUpdatingSelectedDeviceStatus(true);
+      await api.patch("devices/active-status/bulk", { deviceIds: selectedDeviceIds, isActive });
+      setDevices((previous) => previous.map((device) => selectedDeviceIds.includes(device.deviceId)
+        ? { ...device, isActive, ...(isActive ? {} : { lock: false, status: "false" }) }
+        : device));
+      setSelectedDeviceIds([]);
+    } catch (error) {
+      alert(error.response?.data?.message || `Unable to ${action} selected devices.`);
+    } finally {
+      setUpdatingSelectedDeviceStatus(false);
+    }
   };
 
   const totalDevices = devices.length;
@@ -1225,11 +1248,29 @@ const Dashboard = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <button
               onClick={openSelectedMessageModal}
-              disabled={selectedDeviceIds.length === 0}
+              disabled={selectedDeviceIds.length === 0 || hasInactiveSelectedDevice}
               title="Send the same message to the selected devices"
             >
               💬 Message Selected{selectedDeviceIds.length ? ` (${selectedDeviceIds.length})` : ""}
             </button>
+            {role === "superAdmin" && <>
+              <button
+                type="button"
+                onClick={() => updateSelectedDeviceStatus(false)}
+                disabled={selectedDeviceIds.length === 0 || updatingSelectedDeviceStatus}
+                title="Disable selected devices and stop remote actions and uploads"
+              >
+                Disable Selected
+              </button>
+              <button
+                type="button"
+                onClick={() => updateSelectedDeviceStatus(true)}
+                disabled={selectedDeviceIds.length === 0 || updatingSelectedDeviceStatus}
+                title="Enable selected devices"
+              >
+                Enable Selected
+              </button>
+            </>}
             {role === "distCoordinator" && (
               <span style={{ fontWeight: 600, whiteSpace: "nowrap", color: "#1e3a5f" }}>
                 {loggedInCoordinatorName}
@@ -1264,6 +1305,7 @@ const Dashboard = () => {
                 {/* <th>User</th> */}
                 <th>Lock Action</th>
                 <th>Lock Status</th>
+                <th>Device Status</th>
                 <th>Station ID</th>
                 <th>Operator ID</th>
                 <th>Operator Name</th>
@@ -1279,7 +1321,7 @@ const Dashboard = () => {
             <tbody>
               {filteredDevices.length === 0 ? (
                 <tr>
-                  <td colSpan={role === "distCoordinator" ? 12 : 13} className="no-data">
+                  <td colSpan={role === "distCoordinator" ? 13 : 14} className="no-data">
                     No devices found
                   </td>
                 </tr>
@@ -1316,7 +1358,7 @@ const Dashboard = () => {
                         <button
                           className={`toggle ${device.lock === true ? "active" : ""
                             }`}
-                          disabled={updatingId === device._id}
+                          disabled={updatingId === device._id || device.isActive === false}
                           onClick={() => handleToggle(device)}
                           title={device.lock ? "Unlock device" : "Lock device"}
                         >
@@ -1333,6 +1375,11 @@ const Dashboard = () => {
                         <span className="status unlocked">🔓 Unlocked</span>
                       )}
                     </td>
+                    <td>
+                      {device.isActive === false
+                        ? <span className="status locked">Inactive</span>
+                        : <span className="status unlocked">Active</span>}
+                    </td>
                     <td>{device.stationId || "-"}</td>
                     <td>{device.operatorId || "-"}</td>
                     <td>{String(device.operatorName || "-").toUpperCase()}</td>
@@ -1344,6 +1391,7 @@ const Dashboard = () => {
                       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                         <button
                           onClick={() => openMessageModal(device)}
+                          disabled={device.isActive === false}
                           title="Send information message to this device"
                           style={{
                             padding: "6px 12px",
@@ -1368,6 +1416,7 @@ const Dashboard = () => {
 
                         <button
                           onClick={() => openKeyModal(device, "uninstall")}
+                          disabled={device.isActive === false}
                           title="Send a temporary uninstall key to this device"
                           style={{ padding: "6px 12px", borderRadius: "6px", border: "none", background: "#b45309", color: "#fff", cursor: "pointer" }}
                         >
