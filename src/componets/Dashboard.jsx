@@ -1234,7 +1234,7 @@ const Dashboard = () => {
                   📊 Performance Dashboard
                 </button>
               )}
-              {isDistrictCoordinator && (
+              {isDistrictCoordinator && (SHOW_All_REPORT || !HIDE_REPORT_ZIP_TAB || role === "topDdistCoordinator") && (
                 <button
                   onClick={openOperatorPerformanceReport}
                   style={{
