@@ -673,6 +673,8 @@ const Dashboard = () => {
     coordinatorEmail: "",
   });
   const [savingEdit, setSavingEdit] = useState(false);
+  const [masterLookupLoading, setMasterLookupLoading] = useState(false);
+  const [masterLookupMessage, setMasterLookupMessage] = useState("");
 
   const fetchDevices = async () => {
     try {
@@ -890,6 +892,8 @@ const Dashboard = () => {
   // Open edit modal, pre-fill form with existing values
   const openEditModal = (device) => {
     setEditingDevice(device);
+    setMasterLookupLoading(false);
+    setMasterLookupMessage("");
     setEditForm({
       computerName: String(device.laptopName || device.userName || "").trim().replace(/\$+$/, ""),
       stationId: device.stationId || "",
@@ -909,6 +913,41 @@ const Dashboard = () => {
   const handleEditFormChange = (e) => {
     const { name, value } = e.target;
     setEditForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleStationIdBlur = async () => {
+    const stationId = String(editForm.stationId || "").trim();
+    const existingStationId = String(editingDevice?.stationId || "").trim();
+    if (!stationId || stationId === existingStationId) return;
+
+    setMasterLookupLoading(true);
+    setMasterLookupMessage("");
+    try {
+      const response = await api.get(`devices/master/predeviceinfos/${encodeURIComponent(stationId)}`);
+      const master = response.data?.data;
+      if (!master) return;
+      setEditForm((previous) => ({
+        ...previous,
+        stationId: master.stationId || stationId,
+        operatorId: master.operatorId || "",
+        operatorName: master.operatorName || "",
+        districtName: master.districtName || "",
+        block: master.block || "",
+        ...(isDistrictCoordinator ? {} : {
+          coordinatorEmail: master.distCoordinatorEmail || "",
+          distCoordinatorName: master.distCoordinatorName || "",
+        }),
+      }));
+      setMasterLookupMessage("Operator and location details were filled from the master file.");
+    } catch (error) {
+      if (error.response?.status === 404) {
+        setMasterLookupMessage("No master record was found. You can enter the details manually.");
+      } else {
+        setMasterLookupMessage(error.response?.data?.message || "Unable to look up the Station ID.");
+      }
+    } finally {
+      setMasterLookupLoading(false);
+    }
   };
 
   const handleEditSave = async () => {
@@ -2097,8 +2136,17 @@ const Dashboard = () => {
                   name="stationId"
                   value={editForm.stationId}
                   onChange={handleEditFormChange}
+                  onBlur={handleStationIdBlur}
                   style={{ width: "100%", padding: "8px", marginTop: "4px" }}
                 />
+                <small style={{ display: "block", marginTop: "4px", color: "#64748b" }}>
+                  {masterLookupLoading ? "Looking up master details..." : "Changing the Station ID fills details from the master file when available."}
+                </small>
+                {masterLookupMessage && (
+                  <small style={{ display: "block", marginTop: "4px", color: masterLookupMessage.startsWith("Operator") ? "#18864b" : "#b45309" }}>
+                    {masterLookupMessage}
+                  </small>
+                )}
               </label>
 
               <label>
