@@ -51,6 +51,11 @@ const Dashboard = () => {
   const [showAddCoordinator, setShowAddCoordinator] = useState(false);
   const [showDeviceRegistration, setShowDeviceRegistration] = useState(false);
   const [showInstallerUpload, setShowInstallerUpload] = useState(false);
+  const [showMasterFileUpload, setShowMasterFileUpload] = useState(false);
+  const [masterFile, setMasterFile] = useState(null);
+  const [uploadingMasterFile, setUploadingMasterFile] = useState(false);
+  const [masterFileUploadError, setMasterFileUploadError] = useState("");
+  const [masterFileUploadSuccess, setMasterFileUploadSuccess] = useState("");
   const [installerFile, setInstallerFile] = useState(null);
   const [installerVersion, setInstallerVersion] = useState("");
   const [installerUploadError, setInstallerUploadError] = useState("");
@@ -525,6 +530,40 @@ const Dashboard = () => {
 
   const closeInstallerUploadModal = () => {
     if (!uploadingInstaller) setShowInstallerUpload(false);
+  };
+
+  const openMasterFileUploadModal = () => {
+    setMasterFile(null);
+    setMasterFileUploadError("");
+    setMasterFileUploadSuccess("");
+    setShowMasterFileUpload(true);
+    setShowDropdown(false);
+  };
+
+  const closeMasterFileUploadModal = () => {
+    if (!uploadingMasterFile) setShowMasterFileUpload(false);
+  };
+
+  const uploadMasterFile = async () => {
+    if (!masterFile) {
+      setMasterFileUploadError("Select an Excel .xlsx or .xls file first.");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("file", masterFile);
+    setUploadingMasterFile(true);
+    setMasterFileUploadError("");
+    setMasterFileUploadSuccess("");
+    try {
+      const response = await api.post("devices/master/predeviceinfos", formData);
+      const data = response.data?.data || {};
+      setMasterFileUploadSuccess(`Processed ${data.processed || 0}: ${data.inserted || 0} added, ${data.updated || 0} updated, ${data.unchanged || 0} unchanged.`);
+      setMasterFile(null);
+    } catch (error) {
+      setMasterFileUploadError(error.response?.data?.message || "Unable to import the master file.");
+    } finally {
+      setUploadingMasterFile(false);
+    }
   };
 
   const uploadInstaller = async () => {
@@ -1081,6 +1120,17 @@ const Dashboard = () => {
                   }}
                 >
                   💻 Device Registration
+                </button>
+              )}
+              {role === "superAdmin" && (
+                <button
+                  onClick={openMasterFileUploadModal}
+                  style={{
+                    width: "100%", padding: "10px 14px", textAlign: "left", background: "none",
+                    border: "none", cursor: "pointer", borderBottom: "1px solid #eee",
+                  }}
+                >
+                  📄 Upload Master File (PreDeviceInfo)
                 </button>
               )}
               {isTopAdmin && (
@@ -2304,6 +2354,49 @@ const Dashboard = () => {
               <button onClick={closeDeviceRegistrationModal} disabled={registeringDevice} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #ccc", background: "#fff", cursor: "pointer" }}>Cancel</button>
               <button onClick={registerDeviceManually} disabled={registeringDevice} style={{ padding: "8px 16px", borderRadius: "6px", border: "none", background: "#2563eb", color: "#fff", cursor: "pointer" }}>
                 {registeringDevice ? "Registering..." : "Register Device"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMasterFileUpload && (
+        <div
+          className="modal-overlay"
+          onClick={closeMasterFileUploadModal}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "440px", maxWidth: "90%" }}
+          >
+            <h2 style={{ marginTop: 0 }}>Upload Master File (PreDeviceInfo)</h2>
+            <p style={{ color: "#4b5563" }}>
+              Upload the Excel master file. Existing Station IDs are updated and new Station IDs are added.
+            </p>
+            <input
+              type="file"
+              accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              onChange={(event) => {
+                setMasterFile(event.target.files?.[0] || null);
+                setMasterFileUploadError("");
+                setMasterFileUploadSuccess("");
+              }}
+              disabled={uploadingMasterFile}
+              style={{ width: "100%", margin: "12px 0" }}
+            />
+            {masterFile && <p style={{ fontSize: "13px" }}>Selected: {masterFile.name}</p>}
+            {masterFileUploadError && <p style={{ color: "#d93025" }}>{masterFileUploadError}</p>}
+            {masterFileUploadSuccess && <p style={{ color: "#18864b" }}>{masterFileUploadSuccess}</p>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
+              <button onClick={closeMasterFileUploadModal} disabled={uploadingMasterFile}>Cancel</button>
+              <button
+                onClick={uploadMasterFile}
+                disabled={!masterFile || uploadingMasterFile}
+                style={{ background: "#2563eb", color: "#fff", border: "none", borderRadius: "5px", padding: "8px 14px", cursor: uploadingMasterFile ? "wait" : "pointer" }}
+              >
+                {uploadingMasterFile ? "Uploading..." : "Upload and Save"}
               </button>
             </div>
           </div>
