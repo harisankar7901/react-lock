@@ -37,6 +37,7 @@ const Login = () => {
                 navigate('/district-manager-performance-report');
             } else if(res.data.user.role =='admin' ||
                res.data.user.role =='distCoordinator' ||
+               res.data.user.role =='topDdistCoordinator' ||
                res.data.user.role =='superAdmin'
               ){
                 navigate('/dash');
