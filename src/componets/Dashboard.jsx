@@ -34,6 +34,10 @@ const Dashboard = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState("");
   const [deletingUserId, setDeletingUserId] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
+  const [userEditForm, setUserEditForm] = useState({ name: "", email: "", password: "", role: "employee" });
+  const [savingUser, setSavingUser] = useState(false);
+  const [userEditError, setUserEditError] = useState("");
   const [deletingDeviceId, setDeletingDeviceId] = useState(null);
   const [showDropdown, setShowDropdown] = useState(false);
   const menuRef = useRef(null);
@@ -45,7 +49,7 @@ const Dashboard = () => {
   const roleLabel = String(role || "Unknown").replace(/([A-Z])/g, " $1").trim();
   const loggedInUserName = loggedInUser.user || loggedInUser.name || loggedInUser.email || "User";
   const isTopAdmin = role === "superAdmin" || role === "topAdmin";
-  const isDistrictCoordinator = role === "distCoordinator";
+  const isDistrictCoordinator = role === "distCoordinator" || role === "topDdistCoordinator";
   const loggedInCoordinatorEmail = loggedInUser.email || "";
   const loggedInCoordinatorName = loggedInUser.user || loggedInUser.email || "District Manager";
   const [showAddCoordinator, setShowAddCoordinator] = useState(false);
@@ -182,6 +186,42 @@ const Dashboard = () => {
       setUsersError(error.response?.data?.message || "Unable to delete the user.");
     } finally {
       setDeletingUserId(null);
+    }
+  };
+
+  const openUserEdit = (listedUser) => {
+    setEditingUser(listedUser);
+    setUserEditError("");
+    setUserEditForm({
+      name: listedUser.name || "",
+      email: listedUser.email || "",
+      password: listedUser.password || "",
+      role: listedUser.role || "employee",
+    });
+  };
+
+  const closeUserEdit = () => {
+    if (!savingUser) {
+      setEditingUser(null);
+      setUserEditError("");
+    }
+  };
+
+  const saveUserEdit = async () => {
+    if (!editingUser) return;
+    try {
+      setSavingUser(true);
+      setUserEditError("");
+      const response = await api.patch(`auth/users/${editingUser._id}`, userEditForm);
+      const updatedUser = response.data?.data;
+      setUsers((currentUsers) => currentUsers.map((listedUser) =>
+        listedUser._id === editingUser._id ? { ...listedUser, ...updatedUser } : listedUser
+      ));
+      setEditingUser(null);
+    } catch (error) {
+      setUserEditError(error.response?.data?.message || "Unable to update the user.");
+    } finally {
+      setSavingUser(false);
     }
   };
 
@@ -1140,7 +1180,7 @@ const Dashboard = () => {
                   border: "none",
                   cursor: "pointer",
                   borderBottom: "1px solid #eee",
-                  display: role =='distCoordinator' ? 'none' :'block'
+                  display: isDistrictCoordinator ? 'none' :'block'
                 }}
               >
                 ➕ Add Dist Manager
@@ -1237,7 +1277,7 @@ const Dashboard = () => {
                   📋 Show Lock Reasons
                 </button>
               )}
-                 {SHOW_All_REPORT && (
+                 {(SHOW_All_REPORT || role === "topDdistCoordinator") && (
               <button
                 onClick={openReportList}
                 style={{
@@ -1366,7 +1406,7 @@ const Dashboard = () => {
                 Enable Selected
               </button>
             </>}
-            {role === "distCoordinator" && (
+            {isDistrictCoordinator && (
               <span style={{ fontWeight: 600, whiteSpace: "nowrap", color: "#1e3a5f" }}>
                 {loggedInCoordinatorName}
               </span>
@@ -1404,7 +1444,7 @@ const Dashboard = () => {
                 <th>Station ID</th>
                 <th>Operator ID</th>
                 <th>Operator Name</th>
-                {role !== "distCoordinator" && <th>Dist. Manager</th>}
+                {!isDistrictCoordinator && <th>Dist. Manager</th>}
                 <th>District Name</th>
                 <th>Block</th>
                 <th>Action</th>
@@ -1416,7 +1456,7 @@ const Dashboard = () => {
             <tbody>
               {filteredDevices.length === 0 ? (
                 <tr>
-                  <td colSpan={role === "distCoordinator" ? 13 : 14} className="no-data">
+                  <td colSpan={isDistrictCoordinator ? 13 : 14} className="no-data">
                     No devices found
                   </td>
                 </tr>
@@ -1478,7 +1518,7 @@ const Dashboard = () => {
                     <td>{device.stationId || "-"}</td>
                     <td>{device.operatorId || "-"}</td>
                     <td>{String(device.operatorName || "-").toUpperCase()}</td>
-                    {role !== "distCoordinator" && <td>{String(device.distCoordinatorName || "-").toUpperCase()}</td>}
+                    {!isDistrictCoordinator && <td>{String(device.distCoordinatorName || "-").toUpperCase()}</td>}
                     <td>{device.districtName || "-"}</td>
                     <td>{device.block || "-"}</td>
 
@@ -1518,7 +1558,7 @@ const Dashboard = () => {
                           🗑️ Send Uninstall Key
                         </button>
 
-                        {(role === 'admin' || isTopAdmin || role === 'distCoordinator') && (
+                        {(role === 'admin' || isTopAdmin || isDistrictCoordinator) && (
                         <button
                           className="edit-btn"
                           onClick={() => openEditModal(device)}
@@ -1672,7 +1712,7 @@ const Dashboard = () => {
               >
                 OFF Govt. Portal MIS Report
               </button>
-              {!HIDE_REPORT_ZIP_TAB && (
+              {(!HIDE_REPORT_ZIP_TAB || role === "topDdistCoordinator") && (
                 <button
                   onClick={() => setReportTab("zip")}
                   style={{ padding: "9px 14px", border: "none", borderBottom: reportTab === "zip" ? "3px solid #2563eb" : "3px solid transparent", background: "transparent", color: reportTab === "zip" ? "#2563eb" : "#374151", fontWeight: 600, cursor: "pointer" }}
@@ -1682,7 +1722,7 @@ const Dashboard = () => {
               )}
             </div>
 
-            {reportTab === "excel" || HIDE_REPORT_ZIP_TAB ? (
+            {reportTab === "excel" || (HIDE_REPORT_ZIP_TAB && role !== "topDdistCoordinator") ? (
               <>
                 <div style={{ display: "flex", alignItems: "end", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
                   <label>
@@ -1790,6 +1830,14 @@ const Dashboard = () => {
                         <td>
                           <button
                             type="button"
+                            onClick={() => openUserEdit(listedUser)}
+                            disabled={deletingUserId === listedUser._id}
+                            style={{ padding: "6px 12px", marginRight: "8px", borderRadius: "6px", border: "none", background: "#2563eb", color: "#fff", cursor: "pointer" }}
+                          >
+                            ✏️ Edit
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleDeleteUser(listedUser)}
                             disabled={deletingUserId === listedUser._id || String(listedUser.email || "").toLowerCase() === String(loggedInUser.email || "").toLowerCase()}
                             title={String(listedUser.email || "").toLowerCase() === String(loggedInUser.email || "").toLowerCase() ? "You cannot delete your own account" : "Delete this user"}
@@ -1804,6 +1852,53 @@ const Dashboard = () => {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+      {editingUser && (
+        <div
+          className="modal-overlay"
+          onClick={closeUserEdit}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 210 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "430px", maxWidth: "90%" }}
+          >
+            <h2 style={{ marginTop: 0 }}>Edit User</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              <label>
+                Name
+                <input type="text" value={userEditForm.name} onChange={(event) => setUserEditForm((current) => ({ ...current, name: event.target.value }))} style={{ width: "100%", boxSizing: "border-box", marginTop: "4px", padding: "8px" }} />
+              </label>
+              <label>
+                Email
+                <input type="email" value={userEditForm.email} onChange={(event) => setUserEditForm((current) => ({ ...current, email: event.target.value }))} style={{ width: "100%", boxSizing: "border-box", marginTop: "4px", padding: "8px" }} />
+              </label>
+              <label>
+                Password
+                <input type="text" value={userEditForm.password} onChange={(event) => setUserEditForm((current) => ({ ...current, password: event.target.value }))} style={{ width: "100%", boxSizing: "border-box", marginTop: "4px", padding: "8px" }} />
+              </label>
+              <label>
+                Role
+                <select value={userEditForm.role} onChange={(event) => setUserEditForm((current) => ({ ...current, role: event.target.value }))} style={{ width: "100%", marginTop: "4px", padding: "8px" }}>
+                  <option value="employee">Employee</option>
+                  <option value="distCoordinator">District Manager</option>
+                  <option value="topDdistCoordinator">Top District Manager</option>
+                  <option value="admin">Admin</option>
+                  <option value="superAdmin">Super Admin</option>
+                  <option value="topAdmin">Top Admin</option>
+                </select>
+              </label>
+            </div>
+            {userEditError && <p role="alert" style={{ color: "#d93025", marginBottom: 0 }}>{userEditError}</p>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
+              <button type="button" onClick={closeUserEdit} disabled={savingUser}>Cancel</button>
+              <button type="button" onClick={saveUserEdit} disabled={savingUser} style={{ background: "#2563eb", color: "#fff", border: "none", borderRadius: "5px", padding: "8px 14px", cursor: savingUser ? "wait" : "pointer" }}>
+                {savingUser ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1851,7 +1946,7 @@ const Dashboard = () => {
                 <SelectedOperatorActions
                   selectedOperators={missingMisOperators.filter((operator) => selectedMissingMisIds.includes(operator.operatorId))}
                   onClearSelection={() => setSelectedMissingMisIds([])}
-                  canManage={role === "admin" || isTopAdmin || role === "distCoordinator"}
+                  canManage={role === "admin" || isTopAdmin || isDistrictCoordinator}
                 />
                 <table style={{ width: "100%" }}>
                   <thead><tr><th><input type="checkbox" checked={missingMisOperators.length > 0 && missingMisOperators.every((operator) => selectedMissingMisIds.includes(operator.operatorId))} onChange={() => setSelectedMissingMisIds((selected) => selected.length === missingMisOperators.length ? [] : missingMisOperators.map((operator) => operator.operatorId))} aria-label="Select all operators" /></th><th>Sl#</th><th>Operator ID</th><th>Operator Name</th></tr></thead>
