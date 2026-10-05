@@ -50,9 +50,17 @@ const Dashboard = () => {
   const loggedInUserName = loggedInUser.user || loggedInUser.name || loggedInUser.email || "User";
   const isTopAdmin = role === "superAdmin" || role === "topAdmin";
   const isDistrictCoordinator = role === "distCoordinator" || role === "topDdistCoordinator";
+  const canManageHolidays = ["superAdmin", "admin", "topDdistCoordinator", "distCoordinator"].includes(role);
   const loggedInCoordinatorEmail = loggedInUser.email || "";
   const loggedInCoordinatorName = loggedInUser.user || loggedInUser.email || "District Manager";
   const [showAddCoordinator, setShowAddCoordinator] = useState(false);
+  const [showManageHolidays, setShowManageHolidays] = useState(false);
+  const [holidayFromDate, setHolidayFromDate] = useState(getTodayForDateInput);
+  const [holidayToDate, setHolidayToDate] = useState(getTodayForDateInput);
+  const [holidayDeviceIds, setHolidayDeviceIds] = useState([]);
+  const [savingHolidays, setSavingHolidays] = useState(false);
+  const [holidayError, setHolidayError] = useState("");
+  const [holidaySuccess, setHolidaySuccess] = useState("");
   const [showDeviceRegistration, setShowDeviceRegistration] = useState(false);
   const [showInstallerUpload, setShowInstallerUpload] = useState(false);
   const [showMasterFileUpload, setShowMasterFileUpload] = useState(false);
@@ -380,6 +388,55 @@ const Dashboard = () => {
   const openOperatorPerformanceReport = () => {
     setShowDropdown(false);
     setShowOperatorPerformanceReport(true);
+  };
+
+  const openManageHolidays = () => {
+    const today = getTodayForDateInput();
+    setShowDropdown(false);
+    setHolidayFromDate(today);
+    setHolidayToDate(today);
+    setHolidayDeviceIds([]);
+    setHolidayError("");
+    setHolidaySuccess("");
+    setShowManageHolidays(true);
+  };
+
+  const toggleHolidayDevice = (deviceId) => {
+    setHolidayDeviceIds((selected) => selected.includes(deviceId)
+      ? selected.filter((id) => id !== deviceId)
+      : [...selected, deviceId]);
+  };
+
+  const toggleAllHolidayDevices = () => {
+    const availableDeviceIds = devices.map((device) => device.deviceId).filter(Boolean);
+    setHolidayDeviceIds((selected) => selected.length === availableDeviceIds.length ? [] : availableDeviceIds);
+  };
+
+  const saveDeviceHolidays = async () => {
+    if (!holidayDeviceIds.length) {
+      setHolidayError("Select at least one device.");
+      return;
+    }
+    if (!holidayFromDate || !holidayToDate || holidayFromDate > holidayToDate) {
+      setHolidayError("Choose a valid From date and To date.");
+      return;
+    }
+    try {
+      setSavingHolidays(true);
+      setHolidayError("");
+      setHolidaySuccess("");
+      const response = await api.post("devices/holidays", {
+        deviceIds: holidayDeviceIds,
+        fromDate: holidayFromDate,
+        toDate: holidayToDate,
+      });
+      setHolidaySuccess(response.data?.message || "Holiday saved successfully.");
+      setHolidayDeviceIds([]);
+    } catch (error) {
+      setHolidayError(error.response?.data?.message || "Unable to save the holiday.");
+    } finally {
+      setSavingHolidays(false);
+    }
   };
 
   const openMisReportData = async (report) => {
@@ -1245,6 +1302,17 @@ const Dashboard = () => {
                   📈 Operator Performance Report
                 </button>
               )}
+              {canManageHolidays && (
+                <button
+                  onClick={openManageHolidays}
+                  style={{
+                    width: "100%", padding: "10px 14px", textAlign: "left", background: "none",
+                    border: "none", cursor: "pointer", borderBottom: "1px solid #eee",
+                  }}
+                >
+                  🗓️ Manage Holiday
+                </button>
+              )}
               {isTopAdmin && (
                 <button
                   onClick={openInstallerUploadModal}
@@ -1549,14 +1617,16 @@ const Dashboard = () => {
                         </button>
 */}
 
-                        <button
-                          onClick={() => openKeyModal(device, "uninstall")}
-                          disabled={device.isActive === false}
-                          title="Send a temporary uninstall key to this device"
-                          style={{ padding: "6px 12px", borderRadius: "6px", border: "none", background: "#b45309", color: "#fff", cursor: "pointer" }}
-                        >
-                          🗑️ Send Uninstall Key
-                        </button>
+                        {role === "superAdmin" && (
+                          <button
+                            onClick={() => openKeyModal(device, "uninstall")}
+                            disabled={device.isActive === false}
+                            title="Send a temporary uninstall key to this device"
+                            style={{ padding: "6px 12px", borderRadius: "6px", border: "none", background: "#b45309", color: "#fff", cursor: "pointer" }}
+                          >
+                            🗑️ Send Uninstall Key
+                          </button>
+                        )}
 
                         {(role === 'admin' || isTopAdmin || isDistrictCoordinator) && (
                         <button
@@ -1897,6 +1967,67 @@ const Dashboard = () => {
               <button type="button" onClick={closeUserEdit} disabled={savingUser}>Cancel</button>
               <button type="button" onClick={saveUserEdit} disabled={savingUser} style={{ background: "#2563eb", color: "#fff", border: "none", borderRadius: "5px", padding: "8px 14px", cursor: savingUser ? "wait" : "pointer" }}>
                 {savingUser ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showManageHolidays && (
+        <div
+          className="modal-overlay"
+          onClick={() => !savingHolidays && setShowManageHolidays(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 210 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "1000px", maxWidth: "94%", maxHeight: "84vh", display: "flex", flexDirection: "column" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+              <div>
+                <h2 style={{ margin: 0 }}>Manage Holiday</h2>
+                <p style={{ margin: "6px 0 0", color: "#4b5563" }}>Selected devices will not receive scheduled missing-report messages during this date range.</p>
+              </div>
+              <button type="button" onClick={() => setShowManageHolidays(false)} disabled={savingHolidays}>Close</button>
+            </div>
+            <div style={{ display: "flex", alignItems: "end", gap: "12px", margin: "18px 0", flexWrap: "wrap" }}>
+              <label>
+                From date
+                <input type="date" value={holidayFromDate} max={holidayToDate || undefined} onChange={(event) => setHolidayFromDate(event.target.value)} disabled={savingHolidays} style={{ display: "block", marginTop: "5px", padding: "8px" }} />
+              </label>
+              <label>
+                To date
+                <input type="date" value={holidayToDate} min={holidayFromDate || undefined} onChange={(event) => setHolidayToDate(event.target.value)} disabled={savingHolidays} style={{ display: "block", marginTop: "5px", padding: "8px" }} />
+              </label>
+              <span style={{ color: "#1e3a5f", fontWeight: 600 }}>{holidayDeviceIds.length} selected</span>
+            </div>
+            {holidayError && <p role="alert" style={{ color: "#d93025", marginTop: 0 }}>{holidayError}</p>}
+            {holidaySuccess && <p style={{ color: "#18864b", marginTop: 0 }}>{holidaySuccess}</p>}
+            <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: "6px", flex: 1 }}>
+              <table className="device-table" style={{ minWidth: "780px" }}>
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" checked={devices.length > 0 && holidayDeviceIds.length === devices.length} onChange={toggleAllHolidayDevices} disabled={savingHolidays || devices.length === 0} aria-label="Select all devices" /></th>
+                    <th>Laptop Name</th><th>Operator Name</th><th>Station ID</th><th>Dist. Manager Name</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {devices.length === 0 ? <tr><td colSpan="5" className="no-data">No devices found</td></tr> : devices.map((device) => (
+                    <tr key={device.deviceId}>
+                      <td><input type="checkbox" checked={holidayDeviceIds.includes(device.deviceId)} onChange={() => toggleHolidayDevice(device.deviceId)} disabled={savingHolidays} aria-label={`Select ${device.laptopName || device.deviceId}`} /></td>
+                      <td>{device.laptopName || "-"}</td>
+                      <td>{device.operatorName || "-"}</td>
+                      <td>{device.stationId || "-"}</td>
+                      <td>{device.distCoordinatorName || "-"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "18px" }}>
+              <button type="button" onClick={() => setShowManageHolidays(false)} disabled={savingHolidays}>Cancel</button>
+              <button type="button" onClick={saveDeviceHolidays} disabled={savingHolidays || !holidayDeviceIds.length} style={{ background: "#2563eb", color: "#fff", border: "none", borderRadius: "5px", padding: "8px 14px", cursor: savingHolidays ? "wait" : "pointer" }}>
+                {savingHolidays ? "Saving..." : "Mark Selected as Holiday"}
               </button>
             </div>
           </div>
