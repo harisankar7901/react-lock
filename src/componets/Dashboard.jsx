@@ -7,8 +7,7 @@ import PerformanceDashboard from './PerformanceDashboard.jsx';
 import { useNavigate } from "react-router-dom";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import { HIDE_REPORT_ZIP_TAB, MAX_DEVICE_ALLOWED, SHOW_All_REPORT, SHOW_COMPANY_LOGO } from "../constants.js";
-import computerLabLogo from "../assets/companyLogo.jpeg";
+import { HIDE_REPORT_ZIP_TAB, MAX_DEVICE_ALLOWED, SHOW_All_REPORT } from "../constants.js";
 const getTodayForDateInput = () => {
   const now = new Date();
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -1228,8 +1227,6 @@ const Dashboard = () => {
         className="dashboard-header"
         style={{ display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative" }}
       >
-        {SHOW_COMPANY_LOGO && <img className="dashboard-company-logo" src={computerLabLogo} alt="Computer Lab" />}
-
         <div style={{ textAlign: "center", flex: 1 }}>
           <h1>Device Dashboard</h1>
           <p>Manage and monitor registered laptops</p>
