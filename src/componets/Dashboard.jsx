@@ -112,6 +112,11 @@ const Dashboard = () => {
   const [selectedMissingMisIds, setSelectedMissingMisIds] = useState([]);
   const [showUsbTodayModal, setShowUsbTodayModal] = useState(false);
   const [showLaptopSerialNumbers, setShowLaptopSerialNumbers] = useState(false);
+  const [showInstalledSoftware, setShowInstalledSoftware] = useState(false);
+  const [installedSoftware, setInstalledSoftware] = useState([]);
+  const [installedSoftwareLoading, setInstalledSoftwareLoading] = useState(false);
+  const [installedSoftwareError, setInstalledSoftwareError] = useState("");
+  const [uninstallingSoftwareId, setUninstallingSoftwareId] = useState("");
   const [usbTodayRecords, setUsbTodayRecords] = useState([]);
   const [usbTodayDate, setUsbTodayDate] = useState("");
   const [usbSelectedDate, setUsbSelectedDate] = useState(getTodayForDateInput);
@@ -385,6 +390,43 @@ const Dashboard = () => {
   const openLaptopSerialNumberList = () => {
     setShowDropdown(false);
     setShowLaptopSerialNumbers(true);
+  };
+
+  const openInstalledSoftware = async () => {
+    setShowDropdown(false);
+    setShowInstalledSoftware(true);
+    setInstalledSoftware([]);
+    setInstalledSoftwareError("");
+    setInstalledSoftwareLoading(true);
+    try {
+      const response = await api.get("devices/installed-software");
+      setInstalledSoftware(response.data.data || []);
+    } catch (error) {
+      console.error("Fetch installed software error:", error);
+      setInstalledSoftwareError(error.response?.data?.message || "Unable to load installed software.");
+    } finally {
+      setInstalledSoftwareLoading(false);
+    }
+  };
+
+  const requestSoftwareUninstall = async (record) => {
+    const device = record.device || {};
+    const deviceName = device.laptopName || device.deviceId || "this device";
+    if (!window.confirm(`Uninstall \"${record.name}\" from ${deviceName}?\n\nThis sends a remote uninstall request to the device and cannot be undone.`)) {
+      return;
+    }
+
+    setUninstallingSoftwareId(record._id);
+    setInstalledSoftwareError("");
+    try {
+      const response = await api.post(`devices/installed-software/${record._id}/uninstall`);
+      window.alert(response.data?.message || "Uninstall request queued. The device will process it shortly.");
+    } catch (error) {
+      console.error("Queue software uninstall error:", error);
+      setInstalledSoftwareError(error.response?.data?.message || "Unable to queue the uninstall request.");
+    } finally {
+      setUninstallingSoftwareId("");
+    }
   };
 
   const openOperatorPerformanceReport = () => {
@@ -1285,6 +1327,17 @@ const Dashboard = () => {
                   }}
                 >
                   🔢 Show Laptop Serial Number
+                </button>
+              )}
+              {(role === "admin" || isTopAdmin) && (
+                <button
+                  onClick={openInstalledSoftware}
+                  style={{
+                    width: "100%", padding: "10px 14px", textAlign: "left", background: "none",
+                    border: "none", cursor: "pointer", borderBottom: "1px solid #eee",
+                  }}
+                >
+                  🧩 Show Installed Software
                 </button>
               )}
               {isTopAdmin && (
@@ -2189,6 +2242,62 @@ const Dashboard = () => {
               </table>
               {!devices.some((device) => String(device.laptopSerialNumber || "").trim()) && <p>No laptop serial numbers have been saved yet.</p>}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showInstalledSoftware && (
+        <div
+          className="modal-overlay"
+          onClick={() => setShowInstalledSoftware(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
+        >
+          <div
+            className="modal-content"
+            onClick={(event) => event.stopPropagation()}
+            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "1480px", maxWidth: "96%", maxHeight: "80vh", display: "flex", flexDirection: "column" }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+              <div>
+                <h2 style={{ margin: 0 }}>Installed Software</h2>
+                <small style={{ color: "#596579" }}>Current software reported by each device</small>
+              </div>
+              <button onClick={() => setShowInstalledSoftware(false)}>Close</button>
+            </div>
+            {installedSoftwareLoading ? <p>Loading installed software...</p> : installedSoftwareError ? <p style={{ color: "#d93025" }}>{installedSoftwareError}</p> : installedSoftware.length === 0 ? <p>No installed software has been synchronized yet.</p> : (
+              <div style={{ overflow: "auto", marginTop: "16px" }}>
+                <table style={{ width: "100%", minWidth: "1460px", borderCollapse: "collapse" }}>
+                  <thead><tr><th>Sl#</th><th>Computer Name</th><th>Station ID</th><th>Operator ID</th><th>Operator Name</th><th>District Manager Name</th><th>Software Name</th><th>Version</th><th>Publisher</th><th>Install Date</th><th>Last Seen</th>{role === "superAdmin" && <th>Action</th>}</tr></thead>
+                  <tbody>{installedSoftware.map((record, index) => {
+                    const device = record.device || {};
+                    return <tr key={record._id || `${record.deviceId}-${record.softwareKey}`}>
+                      <td>{index + 1}</td>
+                      <td>{displayValue(device.laptopName)}</td>
+                      <td>{displayValue(device.stationId)}</td>
+                      <td>{displayValue(device.operatorId)}</td>
+                      <td>{displayValue(device.operatorName)}</td>
+                      <td>{displayValue(device.distCoordinatorName)}</td>
+                      <td>{displayValue(record.name)}</td>
+                      <td>{displayValue(record.version)}</td>
+                      <td>{displayValue(record.publisher)}</td>
+                      <td>{displayValue(record.installDate)}</td>
+                      <td>{record.lastSeenAt ? new Date(record.lastSeenAt).toLocaleString() : "-"}</td>
+                      {role === "superAdmin" && <td>
+                        <button
+                          type="button"
+                          onClick={() => requestSoftwareUninstall(record)}
+                          disabled={!record.canUninstall || uninstallingSoftwareId === record._id}
+                          title={record.canUninstall ? "Queue remote uninstall" : "Windows did not report an uninstall command for this software"}
+                          style={{ background: "#c62828", color: "#fff", border: 0, borderRadius: "4px", padding: "6px 10px", cursor: record.canUninstall ? "pointer" : "not-allowed", opacity: record.canUninstall ? 1 : 0.55 }}
+                        >
+                          {uninstallingSoftwareId === record._id ? "Queuing..." : "Uninstall"}
+                        </button>
+                      </td>}
+                    </tr>;
+                  })}</tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}
