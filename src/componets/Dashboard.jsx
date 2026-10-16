@@ -1,3 +1,4 @@
+import UninstallList from './UninstallList.jsx';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from '../api/api.js';
 import ZipEnrolmentReports from './ZipEnrolmentReports.jsx';
@@ -25,6 +26,7 @@ const Dashboard = () => {
   const [lockReasonAction, setLockReasonAction] = useState("lock");
   const [lockReason, setLockReason] = useState("");
   const [lockReasonError, setLockReasonError] = useState("");
+  const [showUninstallList, setShowUninstallList] = useState(false);
   const [showLockHistory, setShowLockHistory] = useState(false);
   const [lockHistory, setLockHistory] = useState([]);
   const [lockHistoryLoading, setLockHistoryLoading] = useState(false);
@@ -1227,6 +1229,11 @@ const Dashboard = () => {
                 zIndex: 10,
               }}
             >
+              {['admin', 'superAdmin'].includes(role) && <button
+                onClick={() => { setShowDropdown(false); setShowUninstallList(true); }}
+                style={{ width: '100%', padding: '10px 14px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', borderBottom: '1px solid #eee' }}>
+                Uninstall List
+              </button>}
               <button
                 onClick={openAddCoordinatorModal}
                 style={{
@@ -1720,6 +1727,14 @@ const Dashboard = () => {
         </div>
       )}
 
+      {showUninstallList && ['admin', 'superAdmin'].includes(role) && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'grid', placeItems: 'center', padding: 16 }}>
+          <div role="dialog" aria-modal="true" aria-label="Uninstall List" style={{ background: '#fff', padding: 24, borderRadius: 10, width: 'min(1200px, 95vw)', maxHeight: '90vh', overflow: 'auto' }}>
+            <button autoFocus onClick={() => setShowUninstallList(false)} style={{ float: 'right' }}>Close</button>
+            <UninstallList />
+          </div>
+        </div>
+      )}
       {showLockHistory && (
         <div
           className="modal-overlay"
