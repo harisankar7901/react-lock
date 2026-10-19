@@ -116,6 +116,10 @@ const Dashboard = () => {
   const [installedSoftwareLoading, setInstalledSoftwareLoading] = useState(false);
   const [installedSoftwareError, setInstalledSoftwareError] = useState("");
   const [uninstallingSoftwareId, setUninstallingSoftwareId] = useState("");
+  const [deviceInstalledSoftware, setDeviceInstalledSoftware] = useState([]);
+  const [deviceInstalledSoftwareDevice, setDeviceInstalledSoftwareDevice] = useState(null);
+  const [deviceInstalledSoftwareLoading, setDeviceInstalledSoftwareLoading] = useState(false);
+  const [deviceInstalledSoftwareError, setDeviceInstalledSoftwareError] = useState("");
   const [showApprovedSoftware, setShowApprovedSoftware] = useState(false);
   const [approvedSoftware, setApprovedSoftware] = useState([]);
   const [approvedSoftwareLoading, setApprovedSoftwareLoading] = useState(false);
@@ -423,14 +427,34 @@ const Dashboard = () => {
 
     setUninstallingSoftwareId(record._id);
     setInstalledSoftwareError("");
+    setDeviceInstalledSoftwareError("");
     try {
       const response = await api.post(`devices/installed-software/${record._id}/uninstall`);
       window.alert(response.data?.message || "Uninstall request queued. The device will process it shortly.");
     } catch (error) {
       console.error("Queue software uninstall error:", error);
-      setInstalledSoftwareError(error.response?.data?.message || "Unable to queue the uninstall request.");
+      const message = error.response?.data?.message || "Unable to queue the uninstall request.";
+      setInstalledSoftwareError(message);
+      setDeviceInstalledSoftwareError(message);
     } finally {
       setUninstallingSoftwareId("");
+    }
+  };
+
+  const openDeviceInstalledSoftware = async (device) => {
+    setDeviceInstalledSoftwareDevice(device);
+    setDeviceInstalledSoftware([]);
+    setDeviceInstalledSoftwareError("");
+    setDeviceInstalledSoftwareLoading(true);
+    try {
+      const response = await api.get(`devices/${encodeURIComponent(device.deviceId)}/installed-software`);
+      setDeviceInstalledSoftwareDevice(response.data.device || device);
+      setDeviceInstalledSoftware(response.data.data || []);
+    } catch (error) {
+      console.error("Fetch device installed software error:", error);
+      setDeviceInstalledSoftwareError(error.response?.data?.message || "Unable to load installed software for this device.");
+    } finally {
+      setDeviceInstalledSoftwareLoading(false);
     }
   };
 
@@ -1670,7 +1694,7 @@ const Dashboard = () => {
                           aria-label={device.connectionStatus === "online" ? "Online" : "Offline"}
                         ></span>
                         {device.hasUnapprovedSoftware && <span title="This device has unapproved software" aria-label="Unapproved software" style={{ color: "#d32f2f", fontWeight: 800, fontSize: "18px", lineHeight: 1 }}>!</span>}
-                        💻 {device.laptopName || "Unknown"}
+                        <button type="button" onClick={() => openDeviceInstalledSoftware(device)} title="Show installed software" style={{ border: 0, background: "transparent", padding: 0, color: "inherit", cursor: "pointer", font: "inherit", textAlign: "left" }}>💻 {device.laptopName || "Unknown"}</button>
                       </div>
                     </td>
 
@@ -2359,6 +2383,29 @@ const Dashboard = () => {
                       </td>}
                     </tr>;
                   })}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {deviceInstalledSoftwareDevice && (
+        <div className="modal-overlay" onClick={() => setDeviceInstalledSoftwareDevice(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 205 }}>
+          <div className="modal-content" onClick={(event) => event.stopPropagation()} style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "980px", maxWidth: "96%", maxHeight: "82vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+              <div><h2 style={{ margin: 0 }}>Installed Software</h2><small style={{ color: "#596579" }}>{deviceInstalledSoftwareDevice.laptopName || deviceInstalledSoftwareDevice.deviceId} — unapproved software is shown first.</small></div>
+              <button type="button" onClick={() => setDeviceInstalledSoftwareDevice(null)}>Close</button>
+            </div>
+            {deviceInstalledSoftwareLoading ? <p>Loading installed software...</p> : deviceInstalledSoftwareError ? <p style={{ color: "#d93025" }}>{deviceInstalledSoftwareError}</p> : deviceInstalledSoftware.length === 0 ? <p>No installed software has been synchronized for this device.</p> : (
+              <div style={{ overflow: "auto", marginTop: "16px" }}>
+                <table style={{ width: "100%", minWidth: "880px", borderCollapse: "collapse" }}>
+                  <thead><tr><th>App</th><th>Version</th><th>Publisher</th><th>Status</th>{role === "superAdmin" && <th>Action</th>}</tr></thead>
+                  <tbody>{deviceInstalledSoftware.map((software) => <tr key={software._id || software.softwareKey}>
+                    <td>{displayValue(software.name)}</td><td>{displayValue(software.version)}</td><td>{displayValue(software.publisher)}</td>
+                    <td><span style={{ display: "inline-block", padding: "4px 10px", borderRadius: "999px", fontWeight: 700, fontSize: "12px", color: software.isApproved ? "#087f5b" : "#c62828", background: software.isApproved ? "#e0f2ea" : "#fde3e1" }}>{software.isApproved ? "Approved" : "Unapproved"}</span></td>
+                    {role === "superAdmin" && <td><button type="button" onClick={() => requestSoftwareUninstall({ ...software, device: deviceInstalledSoftwareDevice })} disabled={!software.canUninstall || uninstallingSoftwareId === software._id} title={software.canUninstall ? "Queue remote uninstall" : "Windows did not report an uninstall command for this software"} style={{ background: "#c62828", color: "#fff", border: 0, borderRadius: "4px", padding: "6px 10px", cursor: software.canUninstall ? "pointer" : "not-allowed", opacity: software.canUninstall ? 1 : 0.55 }}>{uninstallingSoftwareId === software._id ? "Queuing..." : "Remove"}</button></td>}
+                  </tr>)}</tbody>
                 </table>
               </div>
             )}
