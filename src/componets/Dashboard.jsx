@@ -116,6 +116,7 @@ const Dashboard = () => {
   const [deviceInstalledSoftwareDevice, setDeviceInstalledSoftwareDevice] = useState(null);
   const [deviceInstalledSoftwareLoading, setDeviceInstalledSoftwareLoading] = useState(false);
   const [deviceInstalledSoftwareError, setDeviceInstalledSoftwareError] = useState("");
+  const [approvingSoftwareId, setApprovingSoftwareId] = useState("");
   const [showApprovedSoftware, setShowApprovedSoftware] = useState(false);
   const [approvedSoftware, setApprovedSoftware] = useState([]);
   const [approvedSoftwareLoading, setApprovedSoftwareLoading] = useState(false);
@@ -415,6 +416,29 @@ const Dashboard = () => {
       setDeviceInstalledSoftwareError(message);
     } finally {
       setUninstallingSoftwareId("");
+    }
+  };
+
+  const approveInstalledSoftware = async (software) => {
+    if (!deviceInstalledSoftwareDevice) return;
+    if (!window.confirm(`Approve "${software.name}"?\n\nIt will be added to the Approved Software list.`)) return;
+
+    setApprovingSoftwareId(software._id);
+    setDeviceInstalledSoftwareError("");
+    try {
+      await api.post("devices/approved-software", {
+        name: software.name,
+        description: "Approved from device inventory"
+      });
+      await Promise.all([
+        openDeviceInstalledSoftware(deviceInstalledSoftwareDevice),
+        fetchDevices()
+      ]);
+    } catch (error) {
+      console.error("Approve installed software error:", error);
+      setDeviceInstalledSoftwareError(error.response?.data?.message || "Unable to approve this software.");
+    } finally {
+      setApprovingSoftwareId("");
     }
   };
 
@@ -2314,7 +2338,7 @@ const Dashboard = () => {
                   <tbody>{deviceInstalledSoftware.map((software) => <tr key={software._id || software.softwareKey}>
                     <td>{displayValue(software.name)}</td><td>{displayValue(software.version)}</td><td>{displayValue(software.publisher)}</td>
                     <td><span style={{ display: "inline-block", padding: "4px 10px", borderRadius: "999px", fontWeight: 700, fontSize: "12px", color: software.isApproved ? "#087f5b" : "#c62828", background: software.isApproved ? "#e0f2ea" : "#fde3e1" }}>{software.isApproved ? "Approved" : "Unapproved"}</span></td>
-                    {role === "superAdmin" && <td><button type="button" onClick={() => requestSoftwareUninstall({ ...software, device: deviceInstalledSoftwareDevice })} disabled={!software.canUninstall || uninstallingSoftwareId === software._id} title={software.canUninstall ? "Queue remote uninstall" : "Windows did not report an uninstall command for this software"} style={{ background: "#c62828", color: "#fff", border: 0, borderRadius: "4px", padding: "6px 10px", cursor: software.canUninstall ? "pointer" : "not-allowed", opacity: software.canUninstall ? 1 : 0.55 }}>{uninstallingSoftwareId === software._id ? "Queuing..." : "Remove"}</button></td>}
+                    {role === "superAdmin" && <td>{!software.isApproved && <><button type="button" onClick={() => approveInstalledSoftware(software)} disabled={approvingSoftwareId === software._id} style={{ background: "#087f5b", color: "#fff", border: 0, borderRadius: "4px", padding: "6px 10px", cursor: "pointer" }}>{approvingSoftwareId === software._id ? "Approving..." : "Approve"}</button><button type="button" onClick={() => requestSoftwareUninstall({ ...software, device: deviceInstalledSoftwareDevice })} disabled={!software.canUninstall || uninstallingSoftwareId === software._id} title={software.canUninstall ? "Queue remote uninstall" : "Windows did not report an uninstall command for this software"} style={{ marginLeft: "6px", background: "#c62828", color: "#fff", border: 0, borderRadius: "4px", padding: "6px 10px", cursor: software.canUninstall ? "pointer" : "not-allowed", opacity: software.canUninstall ? 1 : 0.55 }}>{uninstallingSoftwareId === software._id ? "Queuing..." : "Remove"}</button></>}</td>}
                   </tr>)}</tbody>
                 </table>
               </div>
@@ -2353,7 +2377,7 @@ const Dashboard = () => {
           <div
             className="modal-content"
             onClick={(event) => event.stopPropagation()}
-            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "440px", maxWidth: "90%" }}
+            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "960px", maxWidth: "96%", maxHeight: "86vh", overflow: "auto" }}
           >
             <h2 style={{ marginTop: 0 }}>
               {messageDevice.isBulk
@@ -2815,6 +2839,34 @@ const Dashboard = () => {
             <p style={{ color: "#4b5563" }}>
               Upload the Excel master file. Existing Station IDs are updated and new Station IDs are added.
             </p>
+            <p style={{ marginBottom: "8px", fontWeight: 600 }}>Excel format — keep these column names in the first row:</p>
+            <div style={{ overflowX: "auto", border: "1px solid #d7dee8", borderRadius: "6px" }}>
+              <table style={{ width: "100%", minWidth: "900px", borderCollapse: "collapse", fontSize: "13px" }}>
+                <thead>
+                  <tr style={{ background: "#1f4f8a", color: "#fff" }}>
+                    <th style={{ padding: "9px", textAlign: "left" }}>stationId</th>
+                    <th style={{ padding: "9px", textAlign: "left" }}>operatorId</th>
+                    <th style={{ padding: "9px", textAlign: "left" }}>operatorName</th>
+                    <th style={{ padding: "9px", textAlign: "left" }}>distCoordinatorEmail</th>
+                    <th style={{ padding: "9px", textAlign: "left" }}>distCoordinatorName</th>
+                    <th style={{ padding: "9px", textAlign: "left" }}>districtName</th>
+                    <th style={{ padding: "9px", textAlign: "left" }}>block</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ background: "#f7faff" }}>
+                    <td style={{ padding: "9px" }}>21005</td>
+                    <td style={{ padding: "9px" }}>OCCL2005</td>
+                    <td style={{ padding: "9px" }}>Operator Name</td>
+                    <td style={{ padding: "9px" }}>manager@example.com</td>
+                    <td style={{ padding: "9px" }}>Manager Name</td>
+                    <td style={{ padding: "9px" }}>ANGUL</td>
+                    <td style={{ padding: "9px" }}>ANGUL MPL</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <small style={{ display: "block", marginTop: "8px", color: "#596579" }}>Station ID is required. Column names are matched without spaces, dots, or capitalization differences.</small>
             <input
               type="file"
               accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
