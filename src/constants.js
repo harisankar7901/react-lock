@@ -6,9 +6,9 @@ export const MAX_DEVICE_ALLOWED = 500;
 
 // Set to false when ZIP reports should be visible again.
 
-export const SHOW_COMPANY_LOGO = false;
+export const SHOW_COMPANY_LOGO = true;
 
-export const HIDE_REPORT_ZIP_TAB = true;
-export const SHOW_All_REPORT = false;
+export const HIDE_REPORT_ZIP_TAB = false;
+export const SHOW_All_REPORT = true;
 
 // manas@gmail.com can see the both report, in manu 

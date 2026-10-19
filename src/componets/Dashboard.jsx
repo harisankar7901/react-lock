@@ -116,6 +116,12 @@ const Dashboard = () => {
   const [installedSoftwareLoading, setInstalledSoftwareLoading] = useState(false);
   const [installedSoftwareError, setInstalledSoftwareError] = useState("");
   const [uninstallingSoftwareId, setUninstallingSoftwareId] = useState("");
+  const [showApprovedSoftware, setShowApprovedSoftware] = useState(false);
+  const [approvedSoftware, setApprovedSoftware] = useState([]);
+  const [approvedSoftwareLoading, setApprovedSoftwareLoading] = useState(false);
+  const [approvedSoftwareError, setApprovedSoftwareError] = useState("");
+  const [editingApprovedSoftware, setEditingApprovedSoftware] = useState(null);
+  const [savingApprovedSoftware, setSavingApprovedSoftware] = useState(false);
   const [usbTodayRecords, setUsbTodayRecords] = useState([]);
   const [usbTodayDate, setUsbTodayDate] = useState("");
   const [usbSelectedDate, setUsbSelectedDate] = useState(getTodayForDateInput);
@@ -425,6 +431,58 @@ const Dashboard = () => {
       setInstalledSoftwareError(error.response?.data?.message || "Unable to queue the uninstall request.");
     } finally {
       setUninstallingSoftwareId("");
+    }
+  };
+
+  const loadApprovedSoftware = async () => {
+    setApprovedSoftwareLoading(true);
+    setApprovedSoftwareError("");
+    try {
+      const response = await api.get("devices/approved-software");
+      setApprovedSoftware(response.data.data || []);
+    } catch (error) {
+      console.error("Fetch approved software error:", error);
+      setApprovedSoftwareError(error.response?.data?.message || "Unable to load approved software.");
+    } finally {
+      setApprovedSoftwareLoading(false);
+    }
+  };
+
+  const openApprovedSoftware = async () => {
+    setShowDropdown(false);
+    setEditingApprovedSoftware(null);
+    setShowApprovedSoftware(true);
+    await loadApprovedSoftware();
+  };
+
+  const saveApprovedSoftware = async () => {
+    if (!editingApprovedSoftware) return;
+    setSavingApprovedSoftware(true);
+    setApprovedSoftwareError("");
+    try {
+      if (editingApprovedSoftware._id) await api.patch(`devices/approved-software/${editingApprovedSoftware._id}`, editingApprovedSoftware);
+      else await api.post("devices/approved-software", editingApprovedSoftware);
+      setEditingApprovedSoftware(null);
+      await loadApprovedSoftware();
+      await fetchDevices();
+    } catch (error) {
+      console.error("Save approved software error:", error);
+      setApprovedSoftwareError(error.response?.data?.message || "Unable to save approved software.");
+    } finally {
+      setSavingApprovedSoftware(false);
+    }
+  };
+
+  const deleteApprovedSoftware = async (software) => {
+    if (!window.confirm(`Delete approved software "${software.name}"?`)) return;
+    setApprovedSoftwareError("");
+    try {
+      await api.delete(`devices/approved-software/${software._id}`);
+      await loadApprovedSoftware();
+      await fetchDevices();
+    } catch (error) {
+      console.error("Delete approved software error:", error);
+      setApprovedSoftwareError(error.response?.data?.message || "Unable to delete approved software.");
     }
   };
 
@@ -1337,6 +1395,14 @@ const Dashboard = () => {
                   🧩 Show Installed Software
                 </button>
               )}
+              {(role === "admin" || isTopAdmin) && (
+                <button
+                  onClick={openApprovedSoftware}
+                  style={{ width: "100%", padding: "10px 14px", textAlign: "left", background: "none", border: "none", cursor: "pointer", borderBottom: "1px solid #eee" }}
+                >
+                  ✅ Show Approved Software
+                </button>
+              )}
               {isTopAdmin && (
                 <button
                   onClick={openPerformanceDashboard}
@@ -1603,6 +1669,7 @@ const Dashboard = () => {
                           title={device.connectionStatus === "online" ? "Online" : "Offline"}
                           aria-label={device.connectionStatus === "online" ? "Online" : "Offline"}
                         ></span>
+                        {device.hasUnapprovedSoftware && <span title="This device has unapproved software" aria-label="Unapproved software" style={{ color: "#d32f2f", fontWeight: 800, fontSize: "18px", lineHeight: 1 }}>!</span>}
                         💻 {device.laptopName || "Unknown"}
                       </div>
                     </td>
@@ -2295,6 +2362,27 @@ const Dashboard = () => {
                 </table>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showApprovedSoftware && (
+        <div className="modal-overlay" onClick={() => setShowApprovedSoftware(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 205 }}>
+          <div className="modal-content" onClick={(event) => event.stopPropagation()} style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "900px", maxWidth: "96%", maxHeight: "86vh", overflow: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+              <div><h2 style={{ margin: 0 }}>Approved Software</h2><small style={{ color: "#596579" }}>A red ! in the device list means the device has software not listed here.</small></div>
+              <div style={{ display: "flex", gap: "8px" }}>{role === "superAdmin" && <button type="button" onClick={() => setEditingApprovedSoftware({ name: "", description: "" })}>Add Approved Software</button>}<button type="button" onClick={() => setShowApprovedSoftware(false)}>Close</button></div>
+            </div>
+            {approvedSoftwareError && <p style={{ color: "#d93025" }}>{approvedSoftwareError}</p>}
+            {editingApprovedSoftware && role === "superAdmin" && (
+              <div style={{ marginTop: "16px", padding: "16px", background: "#f5f8fc", border: "1px solid #d5dfed", borderRadius: "6px" }}>
+                <h3 style={{ marginTop: 0 }}>{editingApprovedSoftware._id ? "Edit Approved Software" : "Add Approved Software"}</h3>
+                <label style={{ display: "block", marginBottom: "12px" }}>Software name<input value={editingApprovedSoftware.name || ""} onChange={(event) => setEditingApprovedSoftware({ ...editingApprovedSoftware, name: event.target.value })} style={{ display: "block", width: "100%" }} /></label>
+                <label style={{ display: "block" }}>Description<textarea value={editingApprovedSoftware.description || ""} onChange={(event) => setEditingApprovedSoftware({ ...editingApprovedSoftware, description: event.target.value })} rows="3" style={{ display: "block", width: "100%", resize: "vertical" }} /></label>
+                <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}><button type="button" onClick={saveApprovedSoftware} disabled={savingApprovedSoftware}>{savingApprovedSoftware ? "Saving..." : "Save"}</button><button type="button" onClick={() => setEditingApprovedSoftware(null)}>Cancel</button></div>
+              </div>
+            )}
+            {approvedSoftwareLoading ? <p>Loading approved software...</p> : <div style={{ overflow: "auto", marginTop: "16px" }}><table style={{ width: "100%", borderCollapse: "collapse" }}><thead><tr><th>Sl#</th><th>Software Name</th><th>Description</th>{role === "superAdmin" && <th>Action</th>}</tr></thead><tbody>{approvedSoftware.map((software, index) => <tr key={software._id}><td>{index + 1}</td><td>{software.name}</td><td>{software.description || "-"}</td>{role === "superAdmin" && <td><button type="button" onClick={() => setEditingApprovedSoftware({ ...software })}>Edit</button><button type="button" onClick={() => deleteApprovedSoftware(software)} style={{ marginLeft: "6px", color: "#b71c1c" }}>Delete</button></td>}</tr>)}</tbody></table>{!approvedSoftware.length && <p>No approved software has been added yet.</p>}</div>}
           </div>
         </div>
       )}
