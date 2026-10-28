@@ -62,6 +62,14 @@ const Dashboard = () => {
   const [savingHolidays, setSavingHolidays] = useState(false);
   const [holidayError, setHolidayError] = useState("");
   const [holidaySuccess, setHolidaySuccess] = useState("");
+  const [showManageAutoLock, setShowManageAutoLock] = useState(false);
+  const [autoLockCandidates, setAutoLockCandidates] = useState([]);
+  const [autoLockReportDate, setAutoLockReportDate] = useState("");
+  const [selectedAutoLockDeviceIds, setSelectedAutoLockDeviceIds] = useState([]);
+  const [autoLockLoading, setAutoLockLoading] = useState(false);
+  const [autoLockSaving, setAutoLockSaving] = useState(false);
+  const [autoLockError, setAutoLockError] = useState("");
+  const [autoLockSuccess, setAutoLockSuccess] = useState("");
   const [showDeviceRegistration, setShowDeviceRegistration] = useState(false);
   const [showInstallerUpload, setShowInstallerUpload] = useState(false);
   const [showMasterFileUpload, setShowMasterFileUpload] = useState(false);
@@ -562,6 +570,57 @@ const Dashboard = () => {
       setHolidayError(error.response?.data?.message || "Unable to save the holiday.");
     } finally {
       setSavingHolidays(false);
+    }
+  };
+
+  const loadAutoLockCandidates = async (reportDate = "") => {
+    setAutoLockLoading(true);
+    setAutoLockError("");
+    setAutoLockSuccess("");
+    try {
+      const response = await api.get("devices/auto-lock-management", { params: reportDate ? { reportDate } : {} });
+      setAutoLockCandidates(response.data?.data || []);
+      setAutoLockReportDate(response.data?.reportDate || reportDate);
+      setSelectedAutoLockDeviceIds([]);
+    } catch (error) {
+      setAutoLockError(error.response?.data?.message || "Unable to load automatic lock details.");
+    } finally {
+      setAutoLockLoading(false);
+    }
+  };
+
+  const openManageAutoLock = () => {
+    setShowDropdown(false);
+    setShowManageAutoLock(true);
+    loadAutoLockCandidates();
+  };
+
+  const toggleAutoLockDevice = (deviceId) => {
+    setSelectedAutoLockDeviceIds((selected) => selected.includes(deviceId)
+      ? selected.filter((id) => id !== deviceId)
+      : [...selected, deviceId]);
+  };
+
+  const disableSelectedAutoLocks = async () => {
+    if (!selectedAutoLockDeviceIds.length) {
+      setAutoLockError("Select at least one operator.");
+      return;
+    }
+    if (!window.confirm(`Disable automatic lock for ${selectedAutoLockDeviceIds.length} selected device(s) on ${autoLockReportDate}?`)) return;
+    setAutoLockSaving(true);
+    setAutoLockError("");
+    setAutoLockSuccess("");
+    try {
+      const response = await api.post("devices/auto-lock-management/disable", {
+        reportDate: autoLockReportDate,
+        deviceIds: selectedAutoLockDeviceIds
+      });
+      await loadAutoLockCandidates(autoLockReportDate);
+      setAutoLockSuccess(response.data?.message || "Automatic lock disabled for the selected devices.");
+    } catch (error) {
+      setAutoLockError(error.response?.data?.message || "Unable to disable automatic lock.");
+    } finally {
+      setAutoLockSaving(false);
     }
   };
 
@@ -1450,6 +1509,15 @@ const Dashboard = () => {
                   🗓️ Manage Holiday
                 </button>
               )}
+              <button
+                onClick={openManageAutoLock}
+                style={{
+                  width: "100%", padding: "10px 14px", textAlign: "left", background: "none",
+                  border: "none", cursor: "pointer", borderBottom: "1px solid #eee",
+                }}
+              >
+                🔒 Manage Auto Lock
+              </button>
               {isTopAdmin && (
                 <button
                   onClick={openInstallerUploadModal}
@@ -2114,6 +2182,53 @@ const Dashboard = () => {
               <button type="button" onClick={saveUserEdit} disabled={savingUser} style={{ background: "#2563eb", color: "#fff", border: "none", borderRadius: "5px", padding: "8px 14px", cursor: savingUser ? "wait" : "pointer" }}>
                 {savingUser ? "Saving..." : "Save Changes"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showManageAutoLock && (
+        <div className="modal-overlay" onClick={() => !autoLockSaving && setShowManageAutoLock(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 210 }}>
+          <div className="modal-content" onClick={(event) => event.stopPropagation()} style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "1050px", maxWidth: "94%", maxHeight: "84vh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+              <div>
+                <h2 style={{ margin: 0 }}>Manage Auto Lock</h2>
+                <p style={{ margin: "6px 0 0", color: "#4b5563" }}>Operators below have not uploaded one or both required reports. Disabling applies only to the displayed report date.</p>
+              </div>
+              <button type="button" onClick={() => setShowManageAutoLock(false)} disabled={autoLockSaving}>Close</button>
+            </div>
+            <div style={{ display: "flex", alignItems: "end", gap: "12px", margin: "18px 0", flexWrap: "wrap" }}>
+              <label>
+                Report date
+                <input type="date" value={autoLockReportDate} onChange={(event) => setAutoLockReportDate(event.target.value)} disabled={autoLockLoading || autoLockSaving} style={{ display: "block", marginTop: "5px", padding: "8px" }} />
+              </label>
+              <button type="button" onClick={() => loadAutoLockCandidates(autoLockReportDate)} disabled={autoLockLoading || autoLockSaving || !autoLockReportDate} style={{ padding: "8px 14px" }}>{autoLockLoading ? "Loading..." : "Load"}</button>
+              <span style={{ color: "#1e3a5f", fontWeight: 600 }}>{selectedAutoLockDeviceIds.length} selected</span>
+            </div>
+            {autoLockError && <p role="alert" style={{ color: "#d93025", marginTop: 0 }}>{autoLockError}</p>}
+            {autoLockSuccess && <p style={{ color: "#18864b", marginTop: 0 }}>{autoLockSuccess}</p>}
+            <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: "6px", flex: 1 }}>
+              <table className="device-table" style={{ minWidth: "900px" }}>
+                <thead><tr>
+                  <th><input type="checkbox" checked={autoLockCandidates.filter((item) => !item.isAutoLockDisabled).length > 0 && autoLockCandidates.filter((item) => !item.isAutoLockDisabled).every((item) => selectedAutoLockDeviceIds.includes(item.deviceId))} onChange={() => {
+                    const selectableIds = autoLockCandidates.filter((item) => !item.isAutoLockDisabled).map((item) => item.deviceId);
+                    setSelectedAutoLockDeviceIds((selected) => selected.length === selectableIds.length ? [] : selectableIds);
+                  }} disabled={autoLockLoading || autoLockSaving || !autoLockCandidates.length} aria-label="Select all eligible devices" /></th>
+                  <th>Sl#</th><th>Laptop Name</th><th>Operator ID</th><th>Operator Name</th><th>Dist. Manager Name</th><th>Missing Report</th><th>Auto Lock</th>
+                </tr></thead>
+                <tbody>
+                  {autoLockLoading ? <tr><td colSpan="8" className="no-data">Loading...</td></tr> : autoLockCandidates.length === 0 ? <tr><td colSpan="8" className="no-data">All required reports are uploaded for this date.</td></tr> : autoLockCandidates.map((item, index) => {
+                    const missingText = item.missingOffGovtMis && item.missingEodMis ? "OFF MIS and EOD MIS" : item.missingOffGovtMis ? "OFF MIS" : "EOD MIS";
+                    return <tr key={item.deviceId} style={{ opacity: item.isAutoLockDisabled ? 0.55 : 1 }}>
+                      <td><input type="checkbox" checked={selectedAutoLockDeviceIds.includes(item.deviceId)} onChange={() => toggleAutoLockDevice(item.deviceId)} disabled={autoLockSaving || item.isAutoLockDisabled} aria-label={`Select ${item.operatorId}`} /></td>
+                      <td>{index + 1}</td><td>{displayValue(item.laptopName)}</td><td>{displayValue(item.operatorId)}</td><td>{displayValue(item.operatorName)}</td><td>{displayValue(item.distCoordinatorName)}</td><td>{missingText}</td><td>{item.isAutoLockDisabled ? "Disabled for this date" : "Enabled"}</td>
+                    </tr>;
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "18px" }}>
+              <button type="button" onClick={() => setShowManageAutoLock(false)} disabled={autoLockSaving}>Close</button>
+              <button type="button" onClick={disableSelectedAutoLocks} disabled={autoLockSaving || !selectedAutoLockDeviceIds.length} style={{ background: "#b91c1c", color: "#fff", border: "none", borderRadius: "5px", padding: "8px 14px", cursor: autoLockSaving ? "wait" : "pointer" }}>{autoLockSaving ? "Disabling..." : "Disable Auto Lock"}</button>
             </div>
           </div>
         </div>
