@@ -13,6 +13,23 @@ const getTodayForDateInput = () => {
   now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
   return now.toISOString().slice(0, 10);
 };
+const LOCK_REASON_OPTIONS = [
+  "EOD MIS not uploaded",
+  "OFF MIS not uploaded",
+  "EOD MIS and OFF MIS not uploaded",
+  "Wrong or incomplete data uploaded",
+  "Unauthorised software found",
+  "Policy violation",
+  "Maintenance",
+  "Payment pending"
+];
+const UNLOCK_REASON_OPTIONS = [
+  "EOD MIS uploaded",
+  "OFF MIS uploaded",
+  "EOD MIS and OFF MIS uploaded",
+  "Payment clear",
+  "Issue Resolved"
+];
 const Dashboard = () => {
   const [devices, setDevices] = useState([]);
   const [maxDeviceAllowed, setMaxDeviceAllowed] = useState(MAX_DEVICE_ALLOWED);
@@ -24,6 +41,8 @@ const Dashboard = () => {
   const [lockReasonDevice, setLockReasonDevice] = useState(null);
   const [lockReasonAction, setLockReasonAction] = useState("lock");
   const [lockReason, setLockReason] = useState("");
+  const [lockPaymentAmount, setLockPaymentAmount] = useState("");
+  const [unlockIssue, setUnlockIssue] = useState("");
   const [lockReasonError, setLockReasonError] = useState("");
   const [showUninstallList, setShowUninstallList] = useState(false);
   const [showLockHistory, setShowLockHistory] = useState(false);
@@ -1125,15 +1144,41 @@ const Dashboard = () => {
     setLockReasonDevice(device);
     setLockReasonAction(device.lock ? "unlock" : "lock");
     setLockReason("");
+    setLockPaymentAmount("");
+    setUnlockIssue("");
     setLockReasonError("");
   };
 
   const confirmLockDevice = async () => {
     if (!lockReasonDevice) return;
-    const reason = lockReason.trim();
+    let reason = lockReason.trim();
     if (!reason) {
-      setLockReasonError(`Please enter the reason for ${lockReasonAction}ing this device.`);
+      setLockReasonError(`Please select the reason for ${lockReasonAction}ing this device.`);
       return;
+    }
+    if (lockReasonAction === "lock" && reason === "Payment pending") {
+      const amount = lockPaymentAmount.trim();
+      if (!amount) {
+        setLockReasonError("Enter the pending payment amount.");
+        return;
+      }
+      reason = `Payment pending - Amount: ${amount}`;
+    }
+    if (lockReasonAction === "unlock" && reason === "Payment clear") {
+      const amount = lockPaymentAmount.trim();
+      if (!amount) {
+        setLockReasonError("Enter the cleared payment amount.");
+        return;
+      }
+      reason = `Payment clear - Amount: ${amount}`;
+    }
+    if (lockReasonAction === "unlock" && reason === "Issue Resolved") {
+      const issue = unlockIssue.trim();
+      if (!issue) {
+        setLockReasonError("Enter the resolved issue.");
+        return;
+      }
+      reason = `Issue Resolved - ${issue}`;
     }
 
     const device = lockReasonDevice;
@@ -1142,6 +1187,8 @@ const Dashboard = () => {
       setLockReasonDevice(null);
       setLockReasonAction("lock");
       setLockReason("");
+      setLockPaymentAmount("");
+      setUnlockIssue("");
       setLockReasonError("");
     }
   };
@@ -1151,6 +1198,8 @@ const Dashboard = () => {
       setLockReasonDevice(null);
       setLockReasonAction("lock");
       setLockReason("");
+      setLockPaymentAmount("");
+      setUnlockIssue("");
       setLockReasonError("");
     }
   };
@@ -1897,26 +1946,82 @@ const Dashboard = () => {
             </p>
             <label style={{ display: "block", fontWeight: 600 }}>
               {lockReasonAction === "lock" ? "Lock reason" : "Unlock reason"}
-              <textarea
-                value={lockReason}
-                onChange={(event) => {
-                  setLockReason(event.target.value);
-                  if (lockReasonError) setLockReasonError("");
-                }}
-                placeholder={lockReasonAction === "lock" ? "Example: Payment pending / device maintenance" : "Example: Issue resolved / authorized by supervisor"}
-                maxLength="500"
-                rows="4"
-                autoFocus
-                disabled={updatingId === lockReasonDevice._id}
-                style={{ width: "100%", boxSizing: "border-box", marginTop: "8px", padding: "10px", resize: "vertical" }}
-              />
+              {lockReasonAction === "lock" ? (
+                <select
+                  value={lockReason}
+                  onChange={(event) => {
+                    setLockReason(event.target.value);
+                    if (event.target.value !== "Payment pending") setLockPaymentAmount("");
+                    if (lockReasonError) setLockReasonError("");
+                  }}
+                  autoFocus
+                  disabled={updatingId === lockReasonDevice._id}
+                  style={{ width: "100%", boxSizing: "border-box", marginTop: "8px", padding: "10px" }}
+                >
+                  <option value="">Select lock reason</option>
+                  {LOCK_REASON_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              ) : (
+                <select
+                  value={lockReason}
+                  onChange={(event) => {
+                    setLockReason(event.target.value);
+                    if (event.target.value !== "Payment clear") setLockPaymentAmount("");
+                    if (event.target.value !== "Issue Resolved") setUnlockIssue("");
+                    if (lockReasonError) setLockReasonError("");
+                  }}
+                  autoFocus
+                  disabled={updatingId === lockReasonDevice._id}
+                  style={{ width: "100%", boxSizing: "border-box", marginTop: "8px", padding: "10px" }}
+                >
+                  <option value="">Select unlock reason</option>
+                  {UNLOCK_REASON_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                </select>
+              )}
             </label>
+            {((lockReasonAction === "lock" && lockReason === "Payment pending") || (lockReasonAction === "unlock" && lockReason === "Payment clear")) && (
+              <label style={{ display: "block", marginTop: "14px", fontWeight: 600 }}>
+                {lockReasonAction === "lock" ? "Pending amount" : "Cleared amount"}
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={lockPaymentAmount}
+                  onChange={(event) => {
+                    setLockPaymentAmount(event.target.value);
+                    if (lockReasonError) setLockReasonError("");
+                  }}
+                  placeholder="Enter amount"
+                  maxLength="50"
+                  autoFocus
+                  disabled={updatingId === lockReasonDevice._id}
+                  style={{ width: "100%", boxSizing: "border-box", marginTop: "8px", padding: "10px" }}
+                />
+              </label>
+            )}
+            {lockReasonAction === "unlock" && lockReason === "Issue Resolved" && (
+              <label style={{ display: "block", marginTop: "14px", fontWeight: 600 }}>
+                Resolved issue
+                <textarea
+                  value={unlockIssue}
+                  onChange={(event) => {
+                    setUnlockIssue(event.target.value);
+                    if (lockReasonError) setLockReasonError("");
+                  }}
+                  placeholder="Enter the issue that was resolved"
+                  maxLength="500"
+                  rows="3"
+                  autoFocus
+                  disabled={updatingId === lockReasonDevice._id}
+                  style={{ width: "100%", boxSizing: "border-box", marginTop: "8px", padding: "10px", resize: "vertical" }}
+                />
+              </label>
+            )}
             {lockReasonError && <p style={{ color: "#b91c1c", marginBottom: 0 }}>{lockReasonError}</p>}
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "20px" }}>
               <button onClick={closeLockReasonModal} disabled={updatingId === lockReasonDevice._id}>Cancel</button>
               <button
                 onClick={confirmLockDevice}
-                disabled={updatingId === lockReasonDevice._id || !lockReason.trim()}
+                disabled={updatingId === lockReasonDevice._id || !lockReason.trim() || ((lockReason === "Payment pending" || lockReason === "Payment clear") && !lockPaymentAmount.trim()) || (lockReasonAction === "unlock" && lockReason === "Issue Resolved" && !unlockIssue.trim())}
                 style={{ padding: "8px 18px", border: "none", borderRadius: "6px", background: lockReasonAction === "lock" ? "#dc2626" : "#16a34a", color: "#fff", cursor: "pointer" }}
               >
                 {updatingId === lockReasonDevice._id ? `${lockReasonAction === "lock" ? "Locking" : "Unlocking"}...` : lockReasonAction === "lock" ? "Lock" : "Unlock"}
