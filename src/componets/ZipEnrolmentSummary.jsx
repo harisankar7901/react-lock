@@ -20,11 +20,12 @@ export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
     const cumulativeTotals = filteredRows.reduce((total, row) => ({
         newCount: total.newCount + (Number(row.newCount) || 0),
         mandatoryFree: total.mandatoryFree + (Number(row.mandatoryFree) || 0),
+        mandatoryPayable: total.mandatoryPayable + (Number(row.mandatoryPayable) || 0),
         biometric: total.biometric + (Number(row.biometric) || 0),
         demography: total.demography + (Number(row.demography) || 0),
         totalData: total.totalData + (Number(row.totalData) || 0),
         totalAmountCharged: total.totalAmountCharged + (Number(row.totalAmountCharged) || 0),
-    }), { newCount: 0, mandatoryFree: 0, biometric: 0, demography: 0, totalData: 0, totalAmountCharged: 0 });
+    }), { newCount: 0, mandatoryFree: 0, mandatoryPayable: 0, biometric: 0, demography: 0, totalData: 0, totalAmountCharged: 0 });
 
     useEffect(() => {
         const controller = new AbortController();
@@ -48,12 +49,12 @@ export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
         {busy ? <p role="status">Loading summary...</p> : response?.error ? <p role="alert" style={{ color: '#d93025' }}>{response.error}</p> : !rows.length ? <p>No records to summarize.</p> : !filteredRows.length ? <p>No {matchFilter === 'matched' ? 'matched' : 'unmatched'} records found.</p> : <>
             <div className="mis-report-table-scroll" style={{ overflow: 'auto', maxHeight: '40vh' }}>
                 <table className="mis-report-table" style={{ whiteSpace: 'nowrap' }}>
-                    <thead><tr><th>SL Number</th><th>DATE</th><th>OPERATOR_ID</th><th>Operator Name</th><th>NEW</th><th>MANDATORY FREE</th><th>BIOMETRIC</th><th>DEMOGRAPHY</th><th>TOTAL DATA</th><th>TOTAL_AMOUNT_CHARGED</th><th>Match</th></tr></thead>
+                    <thead><tr><th>SL Number</th><th>DATE</th><th>OPERATOR_ID</th><th>Operator Name</th><th>NEW</th><th>MANDATORY FREE</th><th>MANDATORY PAYBLE</th><th>BIOMETRIC</th><th>DEMOGRAPHY</th><th>TOTAL DATA</th><th>TOTAL_AMOUNT_CHARGED</th><th>Match</th></tr></thead>
                     <tbody>{filteredRows.map((row, index) => <tr key={JSON.stringify([row.date, row.operatorId])}>
                         <td>{index + 1}</td><td>{dateLabel(row.date)}</td><td>{row.operatorId || '—'}</td><td>{row.operatorName || '—'}</td>
-                        <td>{row.newCount}</td><td>{row.mandatoryFree}</td><td>{row.biometric}</td><td>{row.demography}</td><td>{row.totalData}</td><td>{amount.format(row.totalAmountCharged)}</td><td style={{ color: row.match === true ? '#15803d' : '#b91c1c', fontWeight: 800, fontSize: '18px', textAlign: 'center' }} title={row.match === true ? 'Matched' : 'Does not match'} aria-label={row.match === true ? 'Matched' : 'Does not match'}>{row.match === true ? '✓' : '✕'}</td>
+                        <td>{row.newCount}</td><td>{row.mandatoryFree}</td><td>{row.mandatoryPayable || 0}</td><td>{row.biometric}</td><td>{row.demography}</td><td>{row.totalData}</td><td>{amount.format(row.totalAmountCharged)}</td><td style={{ color: row.match === true ? '#15803d' : '#b91c1c', fontWeight: 800, fontSize: '18px', textAlign: 'center' }} title={row.match === true ? 'Matched' : 'Does not match'} aria-label={row.match === true ? 'Matched' : 'Does not match'}>{row.match === true ? '✓' : '✕'}</td>
                     </tr>)}</tbody>
-                    <tfoot><tr><td colSpan="4">Cumulative Total</td><td>{cumulativeTotals.newCount}</td><td>{cumulativeTotals.mandatoryFree}</td><td>{cumulativeTotals.biometric}</td><td>{cumulativeTotals.demography}</td><td>{cumulativeTotals.totalData}</td><td style={{ textAlign: 'right' }}>{amount.format(cumulativeTotals.totalAmountCharged)}</td><td></td></tr></tfoot>
+                    <tfoot><tr><td colSpan="4">Cumulative Total</td><td>{cumulativeTotals.newCount}</td><td>{cumulativeTotals.mandatoryFree}</td><td>{cumulativeTotals.mandatoryPayable}</td><td>{cumulativeTotals.biometric}</td><td>{cumulativeTotals.demography}</td><td>{cumulativeTotals.totalData}</td><td style={{ textAlign: 'right' }}>{amount.format(cumulativeTotals.totalAmountCharged)}</td><td></td></tr></tfoot>
                 </table>
             </div>
             {invalidAmounts > 0 && <p>{invalidAmounts} records have a missing or invalid amount. These records are included in Total Data but excluded from the amount sum.</p>}
