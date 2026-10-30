@@ -1,4 +1,5 @@
 import UninstallList from './UninstallList.jsx';
+import './MisReports.css';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from '../api/api.js';
 import ZipEnrolmentReports from './ZipEnrolmentReports.jsx';
@@ -66,6 +67,8 @@ const Dashboard = () => {
   const user = localStorage.getItem("user");
   const loggedInUser = JSON.parse(user || "{}");
   const role = loggedInUser.role;
+  const isMisAdmin = role === "misAdmin";
+  const canShowEodReports = isMisAdmin || !HIDE_REPORT_ZIP_TAB || role === "topDdistCoordinator";
   const roleLabel = String(role || "Unknown").replace(/([A-Z])/g, " $1").trim();
   const loggedInUserName = loggedInUser.user || loggedInUser.name || loggedInUser.email || "User";
   const isTopAdmin = role === "superAdmin" || role === "topAdmin";
@@ -1462,7 +1465,7 @@ const Dashboard = () => {
               </button>
             )}
 
-            <div ref={menuRef} className="admin-menu" style={{ position: "relative" }}>
+            {!isMisAdmin && <div ref={menuRef} className="admin-menu" style={{ position: "relative" }}>
               <div
                 className="admin"
                 onClick={() => setShowDropdown((prev) => !prev)}
@@ -1668,7 +1671,8 @@ const Dashboard = () => {
               </button>
               </div>
             )}
-            </div>
+            </div>}
+            {isMisAdmin && <button type="button" onClick={handleLogout}>Logout</button>}
           </div>
             <div style={{ color: "#1e3a5f", fontSize: "11px", lineHeight: 1.25, textAlign: "right", whiteSpace: "nowrap" }}>
               <strong>{loggedInUserName}</strong>
@@ -1699,8 +1703,23 @@ const Dashboard = () => {
       </div>
 
 
+      {isMisAdmin && (
+        <section className="mis-reports" aria-labelledby="mis-reports-title">
+          <h2 id="mis-reports-title">MIS-REPORTS</h2>
+          <div className="mis-report-grid">
+            <button type="button" onClick={openLaptopSerialNumberList}>All Laptop Serial Numbers</button>
+            <button type="button" onClick={loadTodayUsbDevices}>Show Connected Devices</button>
+            <button type="button" onClick={openPerformanceDashboard}>District Manager Performance</button>
+            <button type="button" onClick={openOperatorPerformanceReport}>All Operator Performance</button>
+            <button type="button" onClick={openReportList}>Off Data &amp; EOD Data</button>
+            <button type="button" onClick={openLockHistory}>Show Lock Reasons</button>
+            <button type="button" onClick={openManageAutoLock}>Manage Auto Lock</button>
+          </div>
+        </section>
+      )}
+
       {/* Device List */}
-      <div className="device-container">
+      {!isMisAdmin && <div className="device-container">
         <div className="device-toolbar">
           <div className="device-filter-controls">
             <input
@@ -1970,7 +1989,7 @@ const Dashboard = () => {
           </table>
           </div>
         )}
-      </div>
+      </div>}
 
       {lockReasonDevice && (
         <div
@@ -2144,7 +2163,7 @@ const Dashboard = () => {
               >
                 OFF Govt. Portal MIS Report
               </button>
-              {(!HIDE_REPORT_ZIP_TAB || role === "topDdistCoordinator") && (
+              {canShowEodReports && (
                 <button
                   onClick={() => setReportTab("zip")}
                   style={{ padding: "9px 14px", border: "none", borderBottom: reportTab === "zip" ? "3px solid #2563eb" : "3px solid transparent", background: "transparent", color: reportTab === "zip" ? "#2563eb" : "#374151", fontWeight: 600, cursor: "pointer" }}
@@ -2154,7 +2173,7 @@ const Dashboard = () => {
               )}
             </div>
 
-            {reportTab === "excel" || (HIDE_REPORT_ZIP_TAB && role !== "topDdistCoordinator") ? (
+            {reportTab === "excel" || !canShowEodReports ? (
               <>
                 <div style={{ display: "flex", alignItems: "end", gap: "12px", marginBottom: "16px", flexWrap: "wrap" }}>
                   <label>
@@ -2321,6 +2340,7 @@ const Dashboard = () => {
                   <option value="admin">Admin</option>
                   <option value="superAdmin">Super Admin</option>
                   <option value="topAdmin">Top Admin</option>
+                  <option value="misAdmin">MIS Admin</option>
                 </select>
               </label>
             </div>

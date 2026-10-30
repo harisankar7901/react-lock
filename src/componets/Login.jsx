@@ -36,7 +36,8 @@ const Login = () => {
             } else if(res.data.user.role =='admin' ||
                res.data.user.role =='distCoordinator' ||
                res.data.user.role =='topDdistCoordinator' ||
-               res.data.user.role =='superAdmin'
+               res.data.user.role =='superAdmin' ||
+               res.data.user.role =='misAdmin'
               ){
                 navigate('/dash');
             }else{
