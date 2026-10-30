@@ -1361,6 +1361,10 @@ const Dashboard = () => {
   const hasInactiveSelectedDevice = devices.some((device) =>
     selectedDeviceIds.includes(device.deviceId) && device.isActive === false
   );
+  const selectedLockedDeviceIds = devices
+    .filter((device) => selectedDeviceIds.includes(device.deviceId) &&
+      (device.lock === true || String(device.status).toLowerCase() === "true"))
+    .map((device) => device.deviceId);
 
   const toggleDeviceSelection = (deviceId) => {
     setSelectedDeviceIds((previous) => previous.includes(deviceId)
@@ -1391,6 +1395,29 @@ const Dashboard = () => {
       setSelectedDeviceIds([]);
     } catch (error) {
       alert(error.response?.data?.message || `Unable to ${action} selected devices.`);
+    } finally {
+      setUpdatingSelectedDeviceStatus(false);
+    }
+  };
+
+  const unlockSelectedDevices = async () => {
+    if (!selectedLockedDeviceIds.length || updatingSelectedDeviceStatus) return;
+    if (!window.confirm(`Unlock ${selectedLockedDeviceIds.length} selected locked device(s)?`)) return;
+
+    try {
+      setUpdatingSelectedDeviceStatus(true);
+      await api.patch("devices/lock-status/bulk", {
+        deviceIds: selectedLockedDeviceIds,
+        lock: false,
+        reason: "Bulk unlock"
+      });
+      const unlockedIds = new Set(selectedLockedDeviceIds);
+      setDevices((previous) => previous.map((device) => unlockedIds.has(device.deviceId)
+        ? { ...device, lock: false, status: false }
+        : device));
+      setSelectedDeviceIds((previous) => previous.filter((deviceId) => !unlockedIds.has(deviceId)));
+    } catch (error) {
+      alert(error.response?.data?.message || "Unable to unlock the selected devices.");
     } finally {
       setUpdatingSelectedDeviceStatus(false);
     }
@@ -1515,6 +1542,17 @@ const Dashboard = () => {
                   }}
                 >
                   🔢 Show Laptop Serial Number
+                </button>
+              )}
+              {(isTopAdmin || role === "superAdmin") && (
+                <button
+                  onClick={() => { setShowDropdown(false); loadTodayUsbDevices(); }}
+                  style={{
+                    width: "100%", padding: "10px 14px", textAlign: "left", background: "none",
+                    border: "none", cursor: "pointer", borderBottom: "1px solid #eee",
+                  }}
+                >
+                  🔌 Show Connected Devices
                 </button>
               )}
               {(role === "admin" || isTopAdmin) && (
@@ -1713,6 +1751,14 @@ const Dashboard = () => {
             {role === "superAdmin" && <>
               <button
                 type="button"
+                onClick={unlockSelectedDevices}
+                disabled={selectedLockedDeviceIds.length === 0 || updatingSelectedDeviceStatus}
+                title="Unlock only the selected devices that are currently locked"
+              >
+                Unlock Selected{selectedLockedDeviceIds.length ? ` (${selectedLockedDeviceIds.length})` : ""}
+              </button>
+              <button
+                type="button"
                 onClick={() => updateSelectedDeviceStatus(false)}
                 disabled={selectedDeviceIds.length === 0 || updatingSelectedDeviceStatus}
                 title="Disable selected devices and stop remote actions and uploads"
@@ -1732,9 +1778,6 @@ const Dashboard = () => {
               <span style={{ fontWeight: 600, whiteSpace: "nowrap", color: "#1e3a5f" }}>
                 {loggedInCoordinatorName}
               </span>
-            )}
-            {(isTopAdmin || (role === "superAdmin") )&& (
-              <button onClick={loadTodayUsbDevices}>🔌 Show Connected Devices</button>
             )}
             <button onClick={fetchDevices}>Refresh</button>
           </div>
