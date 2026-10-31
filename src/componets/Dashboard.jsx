@@ -6,8 +6,6 @@ import ZipEnrolmentReports from './ZipEnrolmentReports.jsx';
 import SelectedOperatorActions from './SelectedOperatorActions.jsx';
 import PerformanceDashboard from './PerformanceDashboard.jsx';
 import { useNavigate } from "react-router-dom";
-import { jsPDF } from "jspdf";
-import autoTable from "jspdf-autotable";
 import { HIDE_REPORT_ZIP_TAB, MAX_DEVICE_ALLOWED, SHOW_All_REPORT } from "../constants.js";
 const getTodayForDateInput = () => {
   const now = new Date();
@@ -753,9 +751,9 @@ const Dashboard = () => {
     }, Object.fromEntries(totalFields.map((field) => [field, 0])));
   }, [misRecords]);
 
-  const downloadMisReportPdf = () => {
+  const downloadMisReportExcel = async () => {
     if (!misRecords.length) {
-      alert("Search for MIS report data before downloading a PDF.");
+      alert("Search for MIS report data before downloading Excel.");
       return;
     }
 
@@ -784,49 +782,14 @@ const Dashboard = () => {
       displayValue(record.totalCollectionFromResident)
     ]);
 
-    const pdf = new jsPDF({ orientation: "landscape", unit: "pt", format: "a3" });
-    pdf.setFontSize(17);
-    pdf.setTextColor(18, 59, 115);
-    pdf.text("MIS Report", 40, 42);
-    pdf.setFontSize(9);
-    pdf.setTextColor(71, 85, 105);
-    pdf.text(`Date range: ${misFromDate} to ${misToDate}   |   Records: ${misRecords.length}`, 40, 60);
-
-    autoTable(pdf, {
-      startY: 76,
-      head: [headers],
-      body: reportRows,
-      foot: [["", "", "", "", "", "", "", "", "Cumulative Total", misTotals.total, misTotals.newEnrolments, misTotals.mbuAge5To7And15To17, misTotals.mbuAge7To15AndAbove17, misTotals.demographicUpdate, misTotals.biometricUpdate, misTotals.totalCollectionFromResident]],
-      theme: "grid",
-      styles: { fontSize: 6.4, cellPadding: 4, overflow: "linebreak" },
-      headStyles: { fillColor: [18, 59, 115], textColor: 255, fontStyle: "bold", halign: "center" },
-      footStyles: { fillColor: [220, 236, 255], textColor: [18, 59, 115], fontStyle: "bold" },
-      columnStyles: {
-        0: { cellWidth: 26, halign: "center" },
-        1: { cellWidth: 50 },
-        2: { cellWidth: 48 },
-        3: { cellWidth: 56 },
-        4: { cellWidth: 76 },
-        5: { cellWidth: 57 },
-        6: { cellWidth: 82 },
-        7: { cellWidth: 48 },
-        8: { cellWidth: 52 },
-        9: { cellWidth: 38, halign: "right" },
-        10: { cellWidth: 34, halign: "right" },
-        11: { cellWidth: 58, halign: "right" },
-        12: { cellWidth: 65, halign: "right" },
-        13: { cellWidth: 62, halign: "right" },
-        14: { cellWidth: 54, halign: "right" },
-        15: { cellWidth: 58, halign: "right" }
-      },
-      didParseCell: ({ section, column, cell }) => {
-        if ((section === "body" || section === "foot") && column.index >= 9) {
-          cell.styles.halign = "right";
-        }
-      }
-    });
-
-    pdf.save(`MIS-Report_${misFromDate}_to_${misToDate}.pdf`);
+    try {
+      const { downloadMisWorkbook } = await import('./misExcelExport.js');
+      await downloadMisWorkbook(headers, reportRows,
+        ["", "", "", "", "", "", "", "", "Cumulative Total", misTotals.total, misTotals.newEnrolments, misTotals.mbuAge5To7And15To17, misTotals.mbuAge7To15AndAbove17, misTotals.demographicUpdate, misTotals.biometricUpdate, misTotals.totalCollectionFromResident],
+        misFromDate, misToDate);
+    } catch {
+      alert("Unable to download the Excel report. Please try again.");
+    }
   };
 
   const visibleReports = useMemo(() => reports.filter((report) => {
@@ -2271,8 +2234,8 @@ const Dashboard = () => {
                   <button onClick={() => loadMisReportData()} disabled={misRecordsLoading} style={{ padding: "9px 16px" }}>
                     {misRecordsLoading ? "Loading..." : "Search"}
                   </button>
-                  <button onClick={downloadMisReportPdf} disabled={!misRecords.length || misRecordsLoading} style={{ padding: "9px 16px", background: "#166534", color: "#fff", border: "none", borderRadius: "5px", cursor: !misRecords.length || misRecordsLoading ? "not-allowed" : "pointer", opacity: !misRecords.length || misRecordsLoading ? 0.6 : 1 }}>
-                    ⬇ Download PDF
+                  <button onClick={downloadMisReportExcel} disabled={!misRecords.length || misRecordsLoading} style={{ padding: "9px 16px", background: "#166534", color: "#fff", border: "none", borderRadius: "5px", cursor: !misRecords.length || misRecordsLoading ? "not-allowed" : "pointer", opacity: !misRecords.length || misRecordsLoading ? 0.6 : 1 }}>
+                    ⬇ Download Excel
                   </button>
                   <button onClick={() => loadMissingTodayMisReports()} disabled={missingMisLoading} style={{ padding: "9px 16px", marginLeft: "auto", background: "#b45309", color: "#fff", border: "none", borderRadius: "5px", cursor: missingMisLoading ? "wait" : "pointer" }}>
                     {missingMisLoading ? "Loading..." : "Missing Today’s MIS Reports"}
@@ -2416,6 +2379,10 @@ const Dashboard = () => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
               <div>
                 <h2 style={{ margin: 0 }}>Manage Auto Lock</h2>
+                <div role="note" style={{ marginTop: 10, padding: "10px 14px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, color: "#1e3a5f" }}>
+                  <p lang="or" style={{ margin: 0, lineHeight: 1.7 }}>ଯଦି ଅପରେଟରଙ୍କ ପାଖରେ ଅପଲୋଡ୍ କରିବା ପାଇଁ କୌଣସି ଡାଟା ନାହିଁ।</p>
+                  <p lang="en" style={{ margin: "4px 0 0" }}>If operator has zero data to upload</p>
+                </div>
                 <p style={{ margin: "6px 0 0", color: "#4b5563" }}>Operators below have not uploaded one or both required reports. Disabling applies only to the displayed report date.</p>
               </div>
               <button type="button" onClick={() => setShowManageAutoLock(false)} disabled={autoLockSaving}>Close</button>
@@ -2476,6 +2443,10 @@ const Dashboard = () => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
               <div>
                 <h2 style={{ margin: 0 }}>Manage Holiday</h2>
+                <div role="note" style={{ marginTop: 10, padding: "10px 14px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, color: "#1e3a5f" }}>
+                  <p lang="or" style={{ margin: 0, lineHeight: 1.7 }}>ଯଦି ଅପରେଟର ଛୁଟିରେ ଅଛନ୍ତି ଅଥବା ଆଜି କୌଣସି ଛୁଟି ଦିନ ଅଛି।</p>
+                  <p lang="en" style={{ margin: "4px 0 0" }}>Operator is on leave or It is a holiday</p>
+                </div>
                 <p style={{ margin: "6px 0 0", color: "#4b5563" }}>Selected devices will not receive scheduled missing-report messages during this date range.</p>
               </div>
               <button type="button" onClick={() => setShowManageHolidays(false)} disabled={savingHolidays}>Close</button>

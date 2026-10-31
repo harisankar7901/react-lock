@@ -5,6 +5,8 @@ const amount = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
 const dateLabel = value => value ? value.split('-').reverse().join('/') : '—';
 
 export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
+    const [downloading, setDownloading] = useState(false);
+    const [exportError, setExportError] = useState('');
     const [response, setResponse] = useState(null);
     const [matchFilter, setMatchFilter] = useState('all');
     const key = `${reportId}:${refreshKey}:${JSON.stringify(search || {})}`;
@@ -35,6 +37,20 @@ export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
         return () => controller.abort();
     }, [reportId, key, search]);
 
+    const downloadExcel = async () => {
+        if (busy || !filteredRows.length || downloading) return;
+        setDownloading(true);
+        setExportError('');
+        try {
+            const { downloadEodSummary } = await import('./eodSummaryExcelExport.js');
+            await downloadEodSummary(filteredRows, search, matchFilter);
+        } catch {
+            setExportError('Unable to download Excel. Please try again.');
+        } finally {
+            setDownloading(false);
+        }
+    };
+
     return <section aria-label="EOD MIS Report summary" style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid #dbe3ed' }}>
         <h3 style={{ margin: '0 0 8px' }}>EOD MIS Report summary</h3>
         <p style={{ margin: '0 0 12px', color: '#475569' }}>Records are grouped by date and operator.</p>
@@ -46,6 +62,10 @@ export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
                 <option value="unmatched">Unmatched only</option>
             </select>
         </label>
+        <button type="button" onClick={downloadExcel} disabled={busy || !!response?.error || !filteredRows.length || downloading} style={{ marginLeft: 12, padding: '9px 16px', background: '#166534', color: '#fff', border: 'none', borderRadius: 5, cursor: busy || !filteredRows.length || downloading ? 'not-allowed' : 'pointer' }}>
+            {downloading ? 'Preparing Excel...' : 'Download Excel'}
+        </button>
+        {exportError && <p role="alert" style={{ color: '#b91c1c' }}>{exportError}</p>}
         {busy ? <p role="status">Loading summary...</p> : response?.error ? <p role="alert" style={{ color: '#d93025' }}>{response.error}</p> : !rows.length ? <p>No records to summarize.</p> : !filteredRows.length ? <p>No {matchFilter === 'matched' ? 'matched' : 'unmatched'} records found.</p> : <>
             <div className="mis-report-table-scroll" style={{ overflow: 'auto', maxHeight: '40vh' }}>
                 <table className="mis-report-table" style={{ whiteSpace: 'nowrap' }}>
