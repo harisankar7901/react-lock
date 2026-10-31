@@ -84,6 +84,8 @@ const Dashboard = () => {
   const [savingHolidays, setSavingHolidays] = useState(false);
   const [holidayError, setHolidayError] = useState("");
   const [holidaySuccess, setHolidaySuccess] = useState("");
+  const [autoLockSearch, setAutoLockSearch] = useState("");
+  const [operatorSearch, setOperatorSearch] = useState("");
   const [showManageAutoLock, setShowManageAutoLock] = useState(false);
   const [autoLockCandidates, setAutoLockCandidates] = useState([]);
   const [autoLockReportDate, setAutoLockReportDate] = useState("");
@@ -613,6 +615,7 @@ const Dashboard = () => {
 
   const openManageAutoLock = () => {
     setShowDropdown(false);
+    setAutoLockSearch("");
     setShowManageAutoLock(true);
     loadAutoLockCandidates();
   };
@@ -1332,6 +1335,8 @@ const Dashboard = () => {
       );
 
       if (!matchesSearch) return false;
+      const operatorQuery = operatorSearch.trim().toLowerCase();
+      if (![device.operatorName, device.operatorId].some(value => String(value || "").toLowerCase().includes(operatorQuery))) return false;
 
       const isLocked = device.lock === true || String(device.status).toLowerCase() === "true";
       if (deviceFilter === "locked") return isLocked;
@@ -1354,7 +1359,11 @@ const Dashboard = () => {
 
       return true;
     });
-  }, [devices, search, deviceFilter]);
+  }, [devices, search, deviceFilter, operatorSearch]);
+
+  const filteredAutoLockCandidates = autoLockCandidates.filter(item =>
+    [item.operatorName, item.operatorId].some(value =>
+      String(value || "").toLowerCase().includes(autoLockSearch.trim().toLowerCase())));
 
   const selectedFilteredDeviceIds = filteredDevices
     .map((device) => device.deviceId)
@@ -1728,6 +1737,7 @@ const Dashboard = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
+            <input type="search" aria-label="Search devices by operator name or ID" placeholder="Search Operator name or ID" value={operatorSearch} onChange={event => setOperatorSearch(event.target.value)} />
             <select
               value={deviceFilter}
               onChange={(e) => setDeviceFilter(e.target.value)}
@@ -2370,21 +2380,26 @@ const Dashboard = () => {
                 <input type="date" value={autoLockReportDate} onChange={(event) => setAutoLockReportDate(event.target.value)} disabled={autoLockLoading || autoLockSaving} style={{ display: "block", marginTop: "5px", padding: "8px" }} />
               </label>
               <button type="button" onClick={() => loadAutoLockCandidates(autoLockReportDate)} disabled={autoLockLoading || autoLockSaving || !autoLockReportDate} style={{ padding: "8px 14px" }}>{autoLockLoading ? "Loading..." : "Load"}</button>
-              <span style={{ color: "#1e3a5f", fontWeight: 600 }}>{selectedAutoLockDeviceIds.length} selected</span>
+              <label>Operator
+                <input type="search" placeholder="Search Operator name or ID" value={autoLockSearch} onChange={event => setAutoLockSearch(event.target.value)} disabled={autoLockSaving} style={{ display: "block", marginTop: 5, padding: 8 }} />
+              </label>
+              <span style={{ color: "#1e3a5f", fontWeight: 600 }}>{selectedAutoLockDeviceIds.length} selected ({filteredAutoLockCandidates.length} shown)</span>
             </div>
             {autoLockError && <p role="alert" style={{ color: "#d93025", marginTop: 0 }}>{autoLockError}</p>}
             {autoLockSuccess && <p style={{ color: "#18864b", marginTop: 0 }}>{autoLockSuccess}</p>}
             <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: "6px", flex: 1 }}>
               <table className="device-table" style={{ minWidth: "900px" }}>
                 <thead><tr>
-                  <th><input type="checkbox" checked={autoLockCandidates.filter((item) => !item.isAutoLockDisabled).length > 0 && autoLockCandidates.filter((item) => !item.isAutoLockDisabled).every((item) => selectedAutoLockDeviceIds.includes(item.deviceId))} onChange={() => {
-                    const selectableIds = autoLockCandidates.filter((item) => !item.isAutoLockDisabled).map((item) => item.deviceId);
-                    setSelectedAutoLockDeviceIds((selected) => selected.length === selectableIds.length ? [] : selectableIds);
-                  }} disabled={autoLockLoading || autoLockSaving || !autoLockCandidates.length} aria-label="Select all eligible devices" /></th>
+                  <th><input type="checkbox" checked={filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).length > 0 && filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).every((item) => selectedAutoLockDeviceIds.includes(item.deviceId))} onChange={() => {
+                    const selectableIds = filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).map((item) => item.deviceId);
+                    setSelectedAutoLockDeviceIds((selected) => selectableIds.every(id => selected.includes(id))
+                      ? selected.filter(id => !selectableIds.includes(id))
+                      : [...new Set([...selected, ...selectableIds])]);
+                  }} disabled={autoLockLoading || autoLockSaving || !filteredAutoLockCandidates.some(item => !item.isAutoLockDisabled)} aria-label="Select all visible eligible devices" /></th>
                   <th>Sl#</th><th>Laptop Name</th><th>Operator ID</th><th>Operator Name</th><th>Dist. Manager Name</th><th>Missing Report</th><th>Auto Lock</th>
                 </tr></thead>
                 <tbody>
-                  {autoLockLoading ? <tr><td colSpan="8" className="no-data">Loading...</td></tr> : autoLockCandidates.length === 0 ? <tr><td colSpan="8" className="no-data">All required reports are uploaded for this date.</td></tr> : autoLockCandidates.map((item, index) => {
+                  {autoLockLoading ? <tr><td colSpan="8" className="no-data">Loading...</td></tr> : autoLockCandidates.length === 0 ? <tr><td colSpan="8" className="no-data">All required reports are uploaded for this date.</td></tr> : filteredAutoLockCandidates.length === 0 ? <tr><td colSpan="8" className="no-data">No operators match your search.</td></tr> : filteredAutoLockCandidates.map((item, index) => {
                     const missingText = item.missingOffGovtMis && item.missingEodMis ? "OFF MIS and EOD MIS" : item.missingOffGovtMis ? "OFF MIS" : "EOD MIS";
                     return <tr key={item.deviceId} style={{ opacity: item.isAutoLockDisabled ? 0.55 : 1 }}>
                       <td><input type="checkbox" checked={selectedAutoLockDeviceIds.includes(item.deviceId)} onChange={() => toggleAutoLockDevice(item.deviceId)} disabled={autoLockSaving || item.isAutoLockDisabled} aria-label={`Select ${item.operatorId}`} /></td>

@@ -1,3 +1,4 @@
+import { performanceHolidayDays, withoutHolidayReports } from "./performanceHolidays.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api/api.js";
 import "./PerformanceDashboard.css";
@@ -148,6 +149,7 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
   useEffect(() => {
     const controller = new AbortController();
     setLiveKpis(null);
+    setPerformanceRowsData([]);
     setKpiError("");
 
     Promise.all([
@@ -161,7 +163,8 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
         signal: controller.signal,
       }),
       api.get("auth/users/dist-coordinators", { signal: controller.signal }),
-    ]).then(([devicesResponse, summaryResponse, offMisResponse, managersResponse]) => {
+      api.get("devices/reports/performance-holidays", { params: { fromDate, toDate }, signal: controller.signal }),
+    ]).then(([devicesResponse, summaryResponse, offMisResponse, managersResponse, holidaysResponse]) => {
       if (controller.signal.aborted) return;
       const devices = devicesResponse.data?.data || [];
       const summaryRecords = summaryResponse.data?.data || [];
@@ -181,6 +184,11 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
         .map((device) => String(device.operatorId || "").trim())
         .filter(Boolean));
       const totalOperators = operatorIds.size;
+      const holidays = performanceHolidayDays(holidaysResponse.data?.data || [], fromDate, toDate);
+      const eligibleOff = operatorDayCounts(withoutHolidayReports(offMisRecords, 'reportDate', holidays), 'reportDate');
+      const eligibleEod = operatorDayCounts(withoutHolidayReports(summaryRecords, 'date', holidays), 'date');
+      const expectedOperatorDays = [...operatorIds].reduce((sum, id) => sum + Math.max(0, selectedDayCount - (holidays.get(id)?.size || 0)), 0);
+      const eligibleTotal = [...operatorIds].reduce((sum, id) => sum + (eligibleOff.get(id) || 0) + (eligibleEod.get(id) || 0), 0);
       const offMisCountsByOperator = operatorDayCounts(offMisRecords, 'reportDate');
       const eodMisCountsByOperator = operatorDayCounts(summaryRecords, 'date');
       const offMisOperators = [...offMisCountsByOperator.values()].reduce((sum, count) => sum + count, 0);
@@ -230,6 +238,9 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
           const totalData = operatorList.reduce((sum, operatorId) => sum + (summaryByOperator.get(operatorId)?.totalData || 0), 0);
           const totalCollection = operatorList.reduce((sum, operatorId) => sum + (summaryByOperator.get(operatorId)?.totalAmountCharged || 0), 0);
           const assignedTotalOperators = operatorList.length;
+          const holidayDays = operatorList.reduce((sum, id) => sum + (holidays.get(id)?.size || 0), 0);
+          const expectedDays = Math.max(0, assignedTotalOperators * selectedDayCount - holidayDays);
+          const eligibleReports = operatorList.reduce((sum, id) => sum + (eligibleOff.get(id) || 0) + (eligibleEod.get(id) || 0), 0);
           const offMisCount = operatorList.reduce((sum, operatorId) => sum + (offMisCountsByOperator.get(operatorId) || 0), 0);
           const eodMisCount = operatorList.reduce((sum, operatorId) => sum + (eodMisCountsByOperator.get(operatorId) || 0), 0);
           return {
@@ -242,12 +253,13 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
             offGovtMisCount: offMisCount,
             eodMisCount,
             totalOperators: assignedTotalOperators,
+            holidayDays, expectedDays, eligibleReports,
             // Use the same percentage formula as Average Completion.
-            compliance: assignedTotalOperators && selectedDayCount
-              ? ((offMisCount + eodMisCount) / (2 * assignedTotalOperators * selectedDayCount)) * 100
+            compliance: expectedDays
+              ? (eligibleReports / (2 * expectedDays)) * 100
               : 0,
-            averageCompletion: assignedTotalOperators && selectedDayCount
-              ? ((offMisCount + eodMisCount) / (2 * assignedTotalOperators * selectedDayCount)) * 100
+            averageCompletion: expectedDays
+              ? (eligibleReports / (2 * expectedDays)) * 100
               : 0,
           };
         })
@@ -260,8 +272,9 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
         lockedDeviceCount,
         offMisOperators,
         eodMisOperators,
-        averageCompletion: totalOperators && selectedDayCount
-          ? ((offMisOperators + eodMisOperators) / (2 * totalOperators * selectedDayCount)) * 100
+        expectedOperatorDays,
+        averageCompletion: expectedOperatorDays
+          ? (eligibleTotal / (2 * expectedOperatorDays)) * 100
           : 0,
       });
     }).catch((error) => {
@@ -296,15 +309,17 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
     offGovtMisCount: sum.offGovtMisCount + row.offGovtMisCount,
     eodMisCount: sum.eodMisCount + row.eodMisCount,
     totalOperators: sum.totalOperators + row.totalOperators,
-  }), { dataCollected: 0, totalCollection: 0, operatorDataSync: 0, offGovtMisCount: 0, eodMisCount: 0, totalOperators: 0 }), [rows]);
+    holidayDays: sum.holidayDays + row.holidayDays,
+    expectedDays: sum.expectedDays + row.expectedDays,
+    eligibleReports: sum.eligibleReports + row.eligibleReports,
+  }), { holidayDays: 0, expectedDays: 0, eligibleReports: 0, dataCollected: 0, totalCollection: 0, operatorDataSync: 0, offGovtMisCount: 0, eodMisCount: 0, totalOperators: 0 }), [rows]);
   const selectedWorkingDayCount = daysInRange(fromDate, toDate);
-  const compliance = reportTotals.totalOperators && selectedWorkingDayCount
-    ? ((reportTotals.offGovtMisCount + reportTotals.eodMisCount) /
-      (2 * reportTotals.totalOperators * selectedWorkingDayCount)) * 100
+  const compliance = reportTotals.expectedDays
+    ? (reportTotals.eligibleReports / (2 * reportTotals.expectedDays)) * 100
     : 0;
   const averageCompliance = rows.length ? rows.reduce((sum, row) => sum + row.compliance, 0) / rows.length : 0;
   const atRiskCount = selectedWorkingDayCount
-    ? performanceRowsData.filter((row) => row.averageCompletion < 85).length
+    ? performanceRowsData.filter((row) => row.expectedDays > 0 && row.averageCompletion < 85).length
     : 0;
   const performanceRows = [...rows].sort((left, right) => right.compliance - left.compliance);
 
@@ -355,22 +370,22 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
           <div className="excel-kpi-strip">
             <article className="excel-kpi teal"><span>Total Operators</span><strong>{liveKpis ? liveKpis.totalOperators : "…"}</strong><small>&nbsp;</small><b>OP</b></article>
             <article className="excel-kpi gold"><span>Operators Fulfilled</span><div className="excel-kpi-dual"><label>OFF Govt. data sync count <strong>{liveKpis ? liveKpis.offMisOperators : "…"}</strong></label><label>EOD data sync count <strong>{liveKpis ? liveKpis.eodMisOperators : "…"}</strong></label></div><small>Operator uploads OFF Govt &amp; EOD data</small><b>OK</b></article>
-            <article className="excel-kpi blue"><span>Average Completion</span><strong>{liveKpis ? `${liveKpis.averageCompletion.toFixed(1)}%` : "…"}</strong><small>Govt OFF Sync + EOD Sync ÷ Total Operators × 100</small><b>%</b></article>
+            <article className="excel-kpi blue"><span>Average Completion</span><strong>{liveKpis ? (liveKpis.expectedOperatorDays ? `${liveKpis.averageCompletion.toFixed(1)}%` : "N/A") : "…"}</strong><small>Completion excludes approved holiday report requirements</small><b>%</b></article>
             <article className="excel-kpi red"><span>{isOperatorReport ? "At Risk Operator" : "At Risk Districts"}</span><strong>{atRiskCount}</strong><small>Below 85% average completion</small><b>!</b></article>
           </div>
           {kpiError && <p className="excel-kpi-error">{kpiError}</p>}
           <section className="excel-report-card">
             <div className="excel-report-title"><span>{reportTitle}</span><small>Data from {fromDate} to {toDate}</small></div>
             <div className="excel-report-grid">
-              <div className="excel-table-wrap"><table className="excel-report-table"><thead><tr><th rowSpan="2">{isOperatorReport ? "Operator Name" : "Dist Manager Name"}</th>{!isOperatorReport && <th rowSpan="2">Total Operator</th>}<th rowSpan="2">Total Data</th><th rowSpan="2">Total Collection</th><th colSpan="2">Operator Data Sync</th><th rowSpan="2">% of Compliance</th></tr><tr><th>OFF Govt. Portal MIS</th><th>EOD MIS Report</th></tr></thead>
-                <tbody>{rows.map((row) => <tr key={row.id}><td>{String(row.name || "-").toUpperCase()}</td>{!isOperatorReport && <td>{row.totalOperators}</td>}<td>{row.dataCollected}</td><td>{money(row.totalCollection)}</td><td>{row.offGovtMisCount}</td><td>{row.eodMisCount}</td><td>{row.compliance.toFixed(2)}</td></tr>)}</tbody>
-                <tfoot><tr><td>Grand Total</td>{!isOperatorReport && <td>{reportTotals.totalOperators}</td>}<td>{reportTotals.dataCollected}</td><td>{money(reportTotals.totalCollection)}</td><td>{reportTotals.offGovtMisCount}</td><td>{reportTotals.eodMisCount}</td><td>{compliance.toFixed(2)}</td></tr></tfoot>
+              <div className="excel-table-wrap"><table className="excel-report-table"><thead><tr><th rowSpan="2">{isOperatorReport ? "Operator Name" : "Dist Manager Name"}</th>{!isOperatorReport && <th rowSpan="2">Total Operator</th>}<th rowSpan="2">Total Data</th><th rowSpan="2">Total Collection</th><th colSpan="2">Operator Data Sync</th><th rowSpan="2">Holiday Days</th><th rowSpan="2">% of Compliance</th></tr><tr><th>OFF Govt. Portal MIS</th><th>EOD MIS Report</th></tr></thead>
+                <tbody>{rows.map((row) => <tr key={row.id}><td>{String(row.name || "-").toUpperCase()}</td>{!isOperatorReport && <td>{row.totalOperators}</td>}<td>{row.dataCollected}</td><td>{money(row.totalCollection)}</td><td>{row.offGovtMisCount}</td><td>{row.eodMisCount}</td><td title="Includes dates disabled in Manage Auto Lock">{row.holidayDays}</td><td>{row.expectedDays ? row.compliance.toFixed(2) : "N/A (Holiday)"}</td></tr>)}</tbody>
+                <tfoot><tr><td>Grand Total</td>{!isOperatorReport && <td>{reportTotals.totalOperators}</td>}<td>{reportTotals.dataCollected}</td><td>{money(reportTotals.totalCollection)}</td><td>{reportTotals.offGovtMisCount}</td><td>{reportTotals.eodMisCount}</td><td>{reportTotals.holidayDays}</td><td>{reportTotals.expectedDays ? compliance.toFixed(2) : "N/A"}</td></tr></tfoot>
               </table></div>
               <div className="excel-performance-side">
                 <div className="excel-performance-side-title"><span>Performance by {groupLabel}</span></div>
                 <div className="excel-performance-legend"><span><i className="good" />On Target (95%+)</span><span><i className="warn" />Needs Push (85–94.9%)</span><span><i className="bad" />At Risk (&lt;85%)</span></div>
                 <div className="excel-performance-list">{performanceRows.map((row, index) => <div className="excel-performance-row" key={row.id}>
-                  <b>{index + 1}</b><span title={row.name}>{row.name}<small>{groupLabel}</small></span><div><i style={{ width: `${Math.min(row.compliance, 100)}%`, background: performanceColor(row.compliance) }} /></div><strong>{row.compliance.toFixed(1)}%</strong>
+                  <b>{index + 1}</b><span title={row.name}>{row.name}<small>{groupLabel}</small></span><div><i style={{ width: `${Math.min(row.compliance, 100)}%`, background: performanceColor(row.compliance) }} /></div><strong>{row.expectedDays ? `${row.compliance.toFixed(1)}%` : "N/A"}</strong>
                 </div>)}</div>
               </div>
             </div>
