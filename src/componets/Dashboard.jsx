@@ -641,6 +641,11 @@ const Dashboard = () => {
       setHolidaySuccess(response.data?.message || "Holiday saved successfully.");
       setHolidayStatusLoading(true);
       setHolidayRefresh(value => value + 1);
+      if (autoLockLoadedDate && holidayFromDate <= autoLockLoadedDate && holidayToDate >= autoLockLoadedDate) {
+        const savedIds = new Set(holidayDeviceIds);
+        setAutoLockCandidates(items => items.filter(item => !savedIds.has(item.deviceId)));
+        setSelectedAutoLockDeviceIds(ids => ids.filter(id => !savedIds.has(id)));
+      }
       setHolidayDeviceIds([]);
     } catch (error) {
       setHolidayError(error.response?.data?.message || "Unable to save the holiday.");
@@ -650,12 +655,19 @@ const Dashboard = () => {
   };
 
   const loadAutoLockCandidates = async (reportDate = "") => {
+    setAutoLockCandidates([]);
+    setSelectedAutoLockDeviceIds([]);
+    setAutoLockLoadedDate("");
     setAutoLockLoading(true);
     setAutoLockError("");
     setAutoLockSuccess("");
     try {
       const response = await api.get("devices/auto-lock-management", { params: reportDate ? { reportDate } : {} });
-      setAutoLockCandidates(response.data?.data || []);
+      const loadedDate = response.data?.reportDate || reportDate;
+      const holidays = await api.get("devices/holidays", { params: { fromDate: loadedDate, toDate: loadedDate } });
+      const holidayIds = new Set((holidays.data?.data || []).filter(item =>
+        item.fromDate <= loadedDate && item.toDate >= loadedDate).map(item => item.deviceId));
+      setAutoLockCandidates((response.data?.data || []).filter(item => !item.isHoliday && !holidayIds.has(item.deviceId)));
       setAutoLockReportDate(response.data?.reportDate || reportDate);
       setAutoLockLoadedDate(response.data?.reportDate || reportDate);
       setSelectedAutoLockDeviceIds([]);
@@ -2433,7 +2445,7 @@ const Dashboard = () => {
                   <th>Sl#</th><th>Laptop Name</th><th>Operator ID</th><th>Operator Name</th><th>Dist. Manager Name</th><th>Missing Report</th><th>Auto Lock</th>
                 </tr></thead>
                 <tbody>
-                  {autoLockLoading ? <tr><td colSpan="8" className="no-data">Loading...</td></tr> : autoLockCandidates.length === 0 ? <tr><td colSpan="8" className="no-data">All required reports are uploaded for this date.</td></tr> : filteredAutoLockCandidates.length === 0 ? <tr><td colSpan="8" className="no-data">No operators match your search.</td></tr> : filteredAutoLockCandidates.map((item, index) => {
+                  {autoLockLoading ? <tr><td colSpan="8" className="no-data">Loading...</td></tr> : autoLockCandidates.length === 0 ? <tr><td colSpan="8" className="no-data">No operators need auto-lock management for this date. Operators on holiday are excluded.</td></tr> : filteredAutoLockCandidates.length === 0 ? <tr><td colSpan="8" className="no-data">No operators match your search.</td></tr> : filteredAutoLockCandidates.map((item, index) => {
                     const missingText = item.missingOffGovtMis && item.missingEodMis ? "OFF MIS and EOD MIS" : item.missingOffGovtMis ? "OFF MIS" : "EOD MIS";
                     return <tr key={item.deviceId} style={{ opacity: item.isAutoLockDisabled ? 0.55 : 1 }}>
                       <td><input type="checkbox" checked={selectedAutoLockDeviceIds.includes(item.deviceId)} onChange={() => toggleAutoLockDevice(item.deviceId)} disabled={autoLockSaving || item.isAutoLockDisabled} aria-label={`Select ${item.operatorId}`} /></td>
