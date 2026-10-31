@@ -92,6 +92,8 @@ const Dashboard = () => {
   const [showManageAutoLock, setShowManageAutoLock] = useState(false);
   const [autoLockCandidates, setAutoLockCandidates] = useState([]);
   const [autoLockReportDate, setAutoLockReportDate] = useState("");
+  const [autoLockLoadedDate, setAutoLockLoadedDate] = useState("");
+  const [autoLockExporting, setAutoLockExporting] = useState(false);
   const [selectedAutoLockDeviceIds, setSelectedAutoLockDeviceIds] = useState([]);
   const [autoLockLoading, setAutoLockLoading] = useState(false);
   const [autoLockSaving, setAutoLockSaving] = useState(false);
@@ -598,7 +600,7 @@ const Dashboard = () => {
       : [...selected, deviceId]);
   };
 
-  const filteredHolidayDevices = devices.filter(device =>
+  const filteredHolidayDevices = devices.filter(device => device.isActive !== false).filter(device =>
     [device.operatorName, device.stationId].some(value =>
       String(value ?? "").toLowerCase().includes(holidaySearch.trim().toLowerCase())));
   const visibleHolidayDeviceIds = filteredHolidayDevices.map(device => device.deviceId).filter(Boolean);
@@ -611,6 +613,12 @@ const Dashboard = () => {
       ? selected.filter(id => !availableDeviceIds.includes(id))
       : [...new Set([...selected, ...availableDeviceIds])]);
   };
+
+  useEffect(() => {
+    const inactiveIds = new Set(devices.filter(device => device.isActive === false).map(device => device.deviceId));
+    setHolidayDeviceIds(selected => selected.filter(id => !inactiveIds.has(id)));
+    setSelectedAutoLockDeviceIds(selected => selected.filter(id => !inactiveIds.has(id)));
+  }, [devices]);
 
   const saveDeviceHolidays = async () => {
     if (!holidayDeviceIds.length) {
@@ -649,6 +657,7 @@ const Dashboard = () => {
       const response = await api.get("devices/auto-lock-management", { params: reportDate ? { reportDate } : {} });
       setAutoLockCandidates(response.data?.data || []);
       setAutoLockReportDate(response.data?.reportDate || reportDate);
+      setAutoLockLoadedDate(response.data?.reportDate || reportDate);
       setSelectedAutoLockDeviceIds([]);
     } catch (error) {
       setAutoLockError(error.response?.data?.message || "Unable to load automatic lock details.");
@@ -1371,8 +1380,19 @@ const Dashboard = () => {
   }, [devices, search, deviceFilter, operatorSearch]);
 
   const filteredAutoLockCandidates = autoLockCandidates.filter(item =>
+    !devices.some(device => device.deviceId === item.deviceId && device.isActive === false)).filter(item =>
     [item.operatorName, item.operatorId].some(value =>
       String(value || "").toLowerCase().includes(autoLockSearch.trim().toLowerCase())));
+
+  const downloadAutoLockExcel = async () => {
+    if (autoLockLoading || autoLockSaving || autoLockExporting || !filteredAutoLockCandidates.length || autoLockReportDate !== autoLockLoadedDate) return;
+    setAutoLockExporting(true);
+    try {
+      const { autoLockExportOptions, downloadManagementWorkbook } = await import('./managementExcelExport.js');
+      await downloadManagementWorkbook(autoLockExportOptions(filteredAutoLockCandidates, autoLockLoadedDate, autoLockSearch), 'Manage-Auto-Lock_' + autoLockLoadedDate + '.xlsx');
+    } catch { setAutoLockError("Unable to download Excel. Please try again."); }
+    finally { setAutoLockExporting(false); }
+  };
 
   const selectedFilteredDeviceIds = filteredDevices
     .map((device) => device.deviceId)
@@ -2393,6 +2413,7 @@ const Dashboard = () => {
                 <input type="date" value={autoLockReportDate} onChange={(event) => setAutoLockReportDate(event.target.value)} disabled={autoLockLoading || autoLockSaving} style={{ display: "block", marginTop: "5px", padding: "8px" }} />
               </label>
               <button type="button" onClick={() => loadAutoLockCandidates(autoLockReportDate)} disabled={autoLockLoading || autoLockSaving || !autoLockReportDate} style={{ padding: "8px 14px" }}>{autoLockLoading ? "Loading..." : "Load"}</button>
+              <button type="button" onClick={downloadAutoLockExcel} disabled={autoLockLoading || autoLockSaving || autoLockExporting || !!autoLockError || !filteredAutoLockCandidates.length || autoLockReportDate !== autoLockLoadedDate} title="Download the displayed operators; load the selected date first" style={{ padding: "8px 14px" }}>{autoLockExporting ? "Preparing Excel..." : "Download Excel"}</button>
               <label>Operator
                 <input type="search" placeholder="Search Operator name or ID" value={autoLockSearch} onChange={event => setAutoLockSearch(event.target.value)} disabled={autoLockSaving} style={{ display: "block", marginTop: 5, padding: 8 }} />
               </label>

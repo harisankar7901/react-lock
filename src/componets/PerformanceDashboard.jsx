@@ -18,9 +18,10 @@ const SHOW_PAYMENT_OUTSTANDING_DATA = false;
 const SHOW_PAYMENT_OUTSTANDING_SECTION = false;
 
 function getToday() {
-  const date = new Date();
-  date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
-  return date.toISOString().slice(0, 10);
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(new Date()).filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+  return parts.year + '-' + parts.month + '-' + parts.day;
 }
 
 function getCurrentMonth() {
@@ -103,6 +104,8 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
   const [customFromDate, setCustomFromDate] = useState(() => getMonthDateRange(getCurrentMonth()).fromDate);
   const [customToDate, setCustomToDate] = useState(() => getMonthDateRange(getCurrentMonth()).toDate);
   const [selectedManager, setSelectedManager] = useState("all");
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
   const [liveKpis, setLiveKpis] = useState(null);
   const [kpiError, setKpiError] = useState("");
   const [performanceRowsData, setPerformanceRowsData] = useState([]);
@@ -114,6 +117,20 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
     const range = getMonthDateRange(month);
     setFromDate(range.fromDate);
     setToDate(range.toDate);
+  };
+
+  const selectQuickDay = (offset) => {
+    const date = new Date(getToday() + "T00:00:00Z");
+    date.setUTCDate(date.getUTCDate() + offset);
+    const day = date.toISOString().slice(0, 10);
+    setFilterMode("dateRange");
+    setCustomFromDate(day);
+    setCustomToDate(day);
+    setFromDate(day);
+    setToDate(day);
+    setKpiError("");
+    setExportError("");
+    setRefreshVersion(version => version + 1);
   };
 
   const applyCustomDateRange = () => {
@@ -166,7 +183,7 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
       api.get("devices/reports/performance-holidays", { params: { fromDate, toDate }, signal: controller.signal }),
     ]).then(([devicesResponse, summaryResponse, offMisResponse, managersResponse, holidaysResponse]) => {
       if (controller.signal.aborted) return;
-      const devices = devicesResponse.data?.data || [];
+      const devices = (devicesResponse.data?.data || []).filter(device => device.isActive !== false);
       const summaryRecords = summaryResponse.data?.data || [];
       const offMisRecords = offMisResponse.data?.data || [];
       const activeManagers = managersResponse.data?.data || [];
@@ -191,8 +208,8 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
       const eligibleTotal = [...operatorIds].reduce((sum, id) => sum + (eligibleOff.get(id) || 0) + (eligibleEod.get(id) || 0), 0);
       const offMisCountsByOperator = operatorDayCounts(offMisRecords, 'reportDate');
       const eodMisCountsByOperator = operatorDayCounts(summaryRecords, 'date');
-      const offMisOperators = [...offMisCountsByOperator.values()].reduce((sum, count) => sum + count, 0);
-      const eodMisOperators = [...eodMisCountsByOperator.values()].reduce((sum, count) => sum + count, 0);
+      const offMisOperators = [...operatorIds].reduce((sum, id) => sum + (offMisCountsByOperator.get(id) || 0), 0);
+      const eodMisOperators = [...operatorIds].reduce((sum, id) => sum + (eodMisCountsByOperator.get(id) || 0), 0);
 
       const summaryByOperator = new Map();
       for (const record of summaryRecords) {
@@ -322,10 +339,19 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
     ? performanceRowsData.filter((row) => row.expectedDays > 0 && row.averageCompletion < 85).length
     : 0;
   const performanceRows = [...rows].sort((left, right) => right.compliance - left.compliance);
+  const downloadPerformanceExcel = async () => {
+    if (!liveKpis || kpiError || !rows.length || exporting) return;
+    setExporting(true); setExportError("");
+    try {
+      const { performanceExportOptions, downloadManagementWorkbook } = await import('./managementExcelExport.js');
+      await downloadManagementWorkbook(performanceExportOptions(rows, reportTotals, fromDate, toDate), 'District-Manager-Performance_' + fromDate + '_to_' + toDate + '.xlsx');
+    } catch { setExportError("Unable to download Excel. Please try again."); }
+    finally { setExporting(false); }
+  };
 
   return (
     <div className="excel-performance-overlay">
-      <section ref={dashboardRef} className="excel-performance-dashboard" aria-label={reportTitle}>
+      <section ref={dashboardRef} className={`excel-performance-dashboard${isOperatorReport ? "" : " district-performance-dashboard"}`} aria-label={reportTitle}>
         <header className="excel-performance-header">
           <div><h1>{reportTitle}</h1></div>
           <div className="excel-header-device-counts" aria-label="Device status counts">
@@ -333,6 +359,10 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
             <span>Locked Devices <b>{liveKpis ? liveKpis.lockedDeviceCount : "…"}</b></span>
           </div>
           <div className="excel-report-controls">
+            {!isOperatorReport && <>
+              <button type="button" onClick={() => selectQuickDay(0)} title="Show today's report (India time)">Today</button>
+              <button type="button" onClick={() => selectQuickDay(-1)} title="Show yesterday's report (India time)">Yesterday</button>
+            </>}
             <label>Search by
               <select
                 value={filterMode}
@@ -361,6 +391,7 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
               </label>
             </>}
             <button type="button" onClick={toggleFullscreen}>{isFullscreen ? "Exit full screen" : "Full screen"}</button>
+            {!isOperatorReport && <button type="button" onClick={downloadPerformanceExcel} disabled={!liveKpis || !!kpiError || !rows.length || exporting}>{exporting ? "Preparing Excel..." : "Download Excel"}</button>}
             {onClose && <button type="button" onClick={onClose}>Close</button>}
             {onLogout && <button type="button" onClick={onLogout}>Logout</button>}
           </div>
@@ -374,6 +405,7 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
             <article className="excel-kpi red"><span>{isOperatorReport ? "At Risk Operator" : "At Risk Districts"}</span><strong>{atRiskCount}</strong><small>Below 85% average completion</small><b>!</b></article>
           </div>
           {kpiError && <p className="excel-kpi-error">{kpiError}</p>}
+          {exportError && <p role="alert" className="excel-kpi-error">{exportError}</p>}
           <section className="excel-report-card">
             <div className="excel-report-title"><span>{reportTitle}</span><small>Data from {fromDate} to {toDate}</small></div>
             <div className="excel-report-grid">

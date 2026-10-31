@@ -43,3 +43,41 @@
   color: #fff;
   font-size: 18px;
 }
+
+/* Use the viewport width and keep wide district columns inside their own scroller. */
+.district-performance-dashboard .excel-performance-content {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 24px 0 40px;
+}
+
+.district-performance-dashboard .excel-report-grid {
+  grid-template-columns: minmax(0, 1fr) 340px;
+}
+
+.district-performance-dashboard .excel-table-wrap {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.district-performance-dashboard .excel-report-table:not(.payment) {
+  min-width: 1100px;
+}
+
+.district-performance-dashboard .excel-report-table:not(.payment) th,
+.district-performance-dashboard .excel-report-table:not(.payment) td {
+  padding: 10px 12px;
+}
+
+.district-performance-dashboard .excel-performance-header,
+.district-performance-dashboard .excel-report-controls {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 850px) {
+  .district-performance-dashboard .excel-report-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
