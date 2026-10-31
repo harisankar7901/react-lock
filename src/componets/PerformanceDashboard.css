@@ -81,3 +81,73 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* Compact desktop toolbar: title, counts and filters share one row. */
+@media (min-width: 851px) {
+  .district-performance-dashboard .excel-performance-header {
+    flex-wrap: nowrap;
+    gap: 10px;
+    padding: 12px;
+    overflow-x: auto;
+  }
+
+  .district-performance-dashboard .excel-performance-header > div {
+    flex-shrink: 0;
+  }
+
+  .district-performance-dashboard .excel-performance-header h1 {
+    margin: 0;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .district-performance-dashboard .excel-header-device-counts {
+    gap: 4px;
+  }
+
+  .district-performance-dashboard .excel-header-device-counts span {
+    gap: 4px;
+    padding: 7px 5px;
+    font-size: 9px;
+    white-space: nowrap;
+  }
+
+  .district-performance-dashboard .excel-header-device-counts b {
+    font-size: 14px;
+  }
+
+  .district-performance-dashboard .excel-report-controls {
+    flex-wrap: nowrap;
+    gap: 5px;
+  }
+
+  .district-performance-dashboard .excel-report-controls label {
+    gap: 3px;
+    font-size: 9px;
+  }
+
+  .district-performance-dashboard .excel-report-controls input,
+  .district-performance-dashboard .excel-report-controls select {
+    box-sizing: border-box;
+    min-width: 0;
+    width: 100px;
+    height: 30px;
+    padding: 5px 4px;
+    font-size: 11px;
+  }
+
+  .district-performance-dashboard .excel-report-controls select {
+    width: 110px;
+  }
+
+  .district-performance-dashboard .excel-report-controls label:first-of-type select {
+    width: 85px;
+  }
+
+  .district-performance-dashboard .excel-report-controls button {
+    height: 30px;
+    padding: 5px 7px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+}
