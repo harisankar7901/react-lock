@@ -77,6 +77,11 @@ const Dashboard = () => {
   const loggedInCoordinatorEmail = loggedInUser.email || "";
   const loggedInCoordinatorName = loggedInUser.user || loggedInUser.email || "District Manager";
   const [showAddCoordinator, setShowAddCoordinator] = useState(false);
+  const [holidayRecords, setHolidayRecords] = useState([]);
+  const [holidayStatusLoading, setHolidayStatusLoading] = useState(true);
+  const [holidayStatusError, setHolidayStatusError] = useState("");
+  const [holidayRefresh, setHolidayRefresh] = useState(0);
+  const [holidaySearch, setHolidaySearch] = useState("");
   const [showManageHolidays, setShowManageHolidays] = useState(false);
   const [holidayFromDate, setHolidayFromDate] = useState(getTodayForDateInput);
   const [holidayToDate, setHolidayToDate] = useState(getTodayForDateInput);
@@ -548,7 +553,36 @@ const Dashboard = () => {
     setShowOperatorPerformanceReport(true);
   };
 
+  useEffect(() => {
+    if (!showManageHolidays) return;
+    const controller = new AbortController();
+    setHolidayStatusLoading(true);
+    setHolidayStatusError("");
+    setHolidayRecords([]);
+    if (!holidayFromDate || !holidayToDate || holidayFromDate > holidayToDate) {
+      setHolidayStatusError("Choose a valid date range to view holiday status.");
+      setHolidayStatusLoading(false);
+      return () => controller.abort();
+    }
+    api.get("devices/holidays", { params: { fromDate: holidayFromDate, toDate: holidayToDate }, signal: controller.signal })
+      .then(({ data }) => { if (!controller.signal.aborted) setHolidayRecords(data.data || []); })
+      .catch(error => { if (!controller.signal.aborted) setHolidayStatusError(error.response?.data?.message || "Unable to load holiday status."); })
+      .finally(() => { if (!controller.signal.aborted) setHolidayStatusLoading(false); });
+    return () => controller.abort();
+  }, [showManageHolidays, holidayFromDate, holidayToDate, holidayRefresh]);
+
+  const holidayStatusCell = (deviceId) => {
+    if (holidayStatusLoading) return "Loading...";
+    if (holidayStatusError) return "Status unavailable";
+    const ranges = holidayRecords.filter(item => item.deviceId === deviceId);
+    if (!ranges.length) return <span style={{ color: "#64748b" }}>Not marked as holiday</span>;
+    return <div><strong style={{ color: "#15803d" }}>Marked as holiday</strong>
+      {ranges.map(item => <small key={item._id} style={{ display: "block" }}>{item.fromDate} to {item.toDate}</small>)}
+    </div>;
+  };
+
   const openManageHolidays = () => {
+    setHolidaySearch("");
     const today = getTodayForDateInput();
     setShowDropdown(false);
     setHolidayFromDate(today);
@@ -556,6 +590,7 @@ const Dashboard = () => {
     setHolidayDeviceIds([]);
     setHolidayError("");
     setHolidaySuccess("");
+    setHolidayStatusLoading(true);
     setShowManageHolidays(true);
   };
 
@@ -565,9 +600,18 @@ const Dashboard = () => {
       : [...selected, deviceId]);
   };
 
+  const filteredHolidayDevices = devices.filter(device =>
+    [device.operatorName, device.stationId].some(value =>
+      String(value ?? "").toLowerCase().includes(holidaySearch.trim().toLowerCase())));
+  const visibleHolidayDeviceIds = filteredHolidayDevices.map(device => device.deviceId).filter(Boolean);
+  const allVisibleHolidayDevicesSelected = visibleHolidayDeviceIds.length > 0 &&
+    visibleHolidayDeviceIds.every(id => holidayDeviceIds.includes(id));
+
   const toggleAllHolidayDevices = () => {
-    const availableDeviceIds = devices.map((device) => device.deviceId).filter(Boolean);
-    setHolidayDeviceIds((selected) => selected.length === availableDeviceIds.length ? [] : availableDeviceIds);
+    const availableDeviceIds = visibleHolidayDeviceIds;
+    setHolidayDeviceIds(selected => availableDeviceIds.every(id => selected.includes(id))
+      ? selected.filter(id => !availableDeviceIds.includes(id))
+      : [...new Set([...selected, ...availableDeviceIds])]);
   };
 
   const saveDeviceHolidays = async () => {
@@ -589,6 +633,8 @@ const Dashboard = () => {
         toDate: holidayToDate,
       });
       setHolidaySuccess(response.data?.message || "Holiday saved successfully.");
+      setHolidayStatusLoading(true);
+      setHolidayRefresh(value => value + 1);
       setHolidayDeviceIds([]);
     } catch (error) {
       setHolidayError(error.response?.data?.message || "Unable to save the holiday.");
@@ -2366,7 +2412,7 @@ const Dashboard = () => {
       )}
       {showManageAutoLock && (
         <div className="modal-overlay" onClick={() => !autoLockSaving && setShowManageAutoLock(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 210 }}>
-          <div className="modal-content" onClick={(event) => event.stopPropagation()} style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "1050px", maxWidth: "94%", maxHeight: "84vh", display: "flex", flexDirection: "column" }}>
+          <div className="modal-content" onClick={(event) => event.stopPropagation()} style={{ background: "#fff", borderRadius: 0, padding: "clamp(12px, 2vw, 24px)", width: "100%", height: "100%", maxWidth: "100%", maxHeight: "100%", boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
               <div>
                 <h2 style={{ margin: 0 }}>Manage Auto Lock</h2>
@@ -2387,7 +2433,7 @@ const Dashboard = () => {
             </div>
             {autoLockError && <p role="alert" style={{ color: "#d93025", marginTop: 0 }}>{autoLockError}</p>}
             {autoLockSuccess && <p style={{ color: "#18864b", marginTop: 0 }}>{autoLockSuccess}</p>}
-            <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: "6px", flex: 1 }}>
+            <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: "6px", flex: 1, minHeight: 0 }}>
               <table className="device-table" style={{ minWidth: "900px" }}>
                 <thead><tr>
                   <th><input type="checkbox" checked={filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).length > 0 && filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).every((item) => selectedAutoLockDeviceIds.includes(item.deviceId))} onChange={() => {
@@ -2425,7 +2471,7 @@ const Dashboard = () => {
           <div
             className="modal-content"
             onClick={(event) => event.stopPropagation()}
-            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "1000px", maxWidth: "94%", maxHeight: "84vh", display: "flex", flexDirection: "column" }}
+            style={{ background: "#fff", borderRadius: 0, padding: "clamp(12px, 2vw, 24px)", width: "100%", height: "100%", maxWidth: "100%", maxHeight: "100%", boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column" }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
               <div>
@@ -2443,26 +2489,31 @@ const Dashboard = () => {
                 To date
                 <input type="date" value={holidayToDate} min={holidayFromDate || undefined} onChange={(event) => setHolidayToDate(event.target.value)} disabled={savingHolidays} style={{ display: "block", marginTop: "5px", padding: "8px" }} />
               </label>
-              <span style={{ color: "#1e3a5f", fontWeight: 600 }}>{holidayDeviceIds.length} selected</span>
+              <label>Search operator or station
+                <input type="search" placeholder="Operator name or station ID" value={holidaySearch} onChange={event => setHolidaySearch(event.target.value)} disabled={savingHolidays} style={{ display: "block", marginTop: 5, padding: 8 }} />
+              </label>
+              <span style={{ color: "#1e3a5f", fontWeight: 600 }}>{holidayDeviceIds.length} selected · {filteredHolidayDevices.length} shown</span>
             </div>
+            {holidayStatusError && <p role="alert" style={{ color: "#d93025" }}>{holidayStatusError} <button type="button" onClick={() => setHolidayRefresh(value => value + 1)}>Retry</button></p>}
             {holidayError && <p role="alert" style={{ color: "#d93025", marginTop: 0 }}>{holidayError}</p>}
             {holidaySuccess && <p style={{ color: "#18864b", marginTop: 0 }}>{holidaySuccess}</p>}
-            <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: "6px", flex: 1 }}>
+            <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: "6px", flex: 1, minHeight: 0 }}>
               <table className="device-table" style={{ minWidth: "780px" }}>
                 <thead>
                   <tr>
-                    <th><input type="checkbox" checked={devices.length > 0 && holidayDeviceIds.length === devices.length} onChange={toggleAllHolidayDevices} disabled={savingHolidays || devices.length === 0} aria-label="Select all devices" /></th>
-                    <th>Laptop Name</th><th>Operator Name</th><th>Station ID</th><th>Dist. Manager Name</th>
+                    <th><input type="checkbox" checked={allVisibleHolidayDevicesSelected} onChange={toggleAllHolidayDevices} disabled={savingHolidays || !visibleHolidayDeviceIds.length} aria-label="Select all matching devices" /></th>
+                    <th>Laptop Name</th><th>Operator Name</th><th>Station ID</th><th>Dist. Manager Name</th><th>Holiday Status (saved dates)</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {devices.length === 0 ? <tr><td colSpan="5" className="no-data">No devices found</td></tr> : devices.map((device) => (
+                  {filteredHolidayDevices.length === 0 ? <tr><td colSpan="6" className="no-data">No operators or stations match your search.</td></tr> : filteredHolidayDevices.map((device) => (
                     <tr key={device.deviceId}>
                       <td><input type="checkbox" checked={holidayDeviceIds.includes(device.deviceId)} onChange={() => toggleHolidayDevice(device.deviceId)} disabled={savingHolidays} aria-label={`Select ${device.laptopName || device.deviceId}`} /></td>
                       <td>{device.laptopName || "-"}</td>
                       <td>{device.operatorName || "-"}</td>
                       <td>{device.stationId || "-"}</td>
                       <td>{device.distCoordinatorName || "-"}</td>
+                      <td>{holidayStatusCell(device.deviceId)}</td>
                     </tr>
                   ))}
                 </tbody>
