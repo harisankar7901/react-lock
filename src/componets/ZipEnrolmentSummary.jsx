@@ -105,7 +105,7 @@ export default function ZipEnrolmentSummary({ reportId, refreshKey, search }) {
                         <td>{index + 1}</td><td>{dateLabel(row.date)}</td><td>{row.operatorId}</td><td>{row.operatorName}</td><td>{row.distCorName}</td>
         <td title={row.misNew == null ? 'No MIS New count' : 'MIS New: ' + row.misNew}>{row.misTotal ?? ''}</td>
         <td>{row.offTotalCollection == null ? '' : amount.format(row.offTotalCollection)}</td>
-        <td title={row.summaryNew == null ? 'No ZIP New count' : 'Summary New: ' + row.summaryNew}>{row.summaryTotal ?? ''}</td>
+        <td title={row.summaryNew == null ? 'No EOD New count' : 'Summary New: ' + row.summaryNew}>{row.summaryTotal ?? ''}</td>
         <td>{row.eodTotalAmountCharged == null ? '' : amount.format(row.eodTotalAmountCharged)}</td>
                     </tr>)}</tbody>
                 </table>
