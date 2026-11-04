@@ -1674,7 +1674,7 @@ const Dashboard = () => {
                   ⬆️ Install New Version
                 </button>
               )}
-              {(role === "admin" || isTopAdmin) && (
+              {(role === "admin" || isTopAdmin || isDistrictCoordinator) && (
                 <button
                   onClick={openLockHistory}
                   style={{
@@ -2161,9 +2161,9 @@ const Dashboard = () => {
           <div
             className="modal-content"
             onClick={(event) => event.stopPropagation()}
-            style={{ background: "#fff", borderRadius: "12px", padding: "24px", width: "1100px", maxWidth: "96%", maxHeight: "80vh", display: "flex", flexDirection: "column" }}
+            style={{ background: "#fff", borderRadius: 0, padding: "20px", width: "100%", height: "100%", maxWidth: "100%", maxHeight: "100%", margin: 0, boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column" }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexShrink: 0 }}>
               <div>
                 <h2 style={{ margin: 0 }}>Lock & Unlock History</h2>
                 <small style={{ color: "#64748b" }}>Most recent 1,000 actions</small>
@@ -2171,7 +2171,7 @@ const Dashboard = () => {
               <button onClick={() => setShowLockHistory(false)}>Close</button>
             </div>
             {lockHistoryLoading ? <p>Loading lock history...</p> : lockHistoryError ? <p style={{ color: "#b91c1c" }}>{lockHistoryError}</p> : lockHistory.length === 0 ? <p>No lock activity has been recorded yet.</p> : (
-              <div style={{ overflow: "auto", marginTop: "16px" }}>
+              <div style={{ overflow: "auto", marginTop: "16px", flex: 1, minHeight: 0 }}>
                 <table className="device-table" style={{ minWidth: "950px" }}>
                   <thead><tr><th>Date & Time</th><th>Action</th><th>Laptop</th><th>Operator ID</th><th>Operator Name</th><th>Reason</th><th>Performed By</th><th>Role</th></tr></thead>
                   <tbody>{lockHistory.map((record) => (
