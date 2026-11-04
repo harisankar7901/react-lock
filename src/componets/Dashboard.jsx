@@ -88,7 +88,7 @@ const Dashboard = () => {
   const [holidayError, setHolidayError] = useState("");
   const [holidaySuccess, setHolidaySuccess] = useState("");
   const [autoLockSearch, setAutoLockSearch] = useState("");
-  const [operatorSearch, setOperatorSearch] = useState("");
+  const [lockHistorySearch, setLockHistorySearch] = useState("");
   const [showManageAutoLock, setShowManageAutoLock] = useState(false);
   const [autoLockCandidates, setAutoLockCandidates] = useState([]);
   const [autoLockReportDate, setAutoLockReportDate] = useState("");
@@ -1240,7 +1240,12 @@ const Dashboard = () => {
     }
   };
 
+  const filteredLockHistory = lockHistory.filter(record =>
+    [record.operatorName, record.operatorId, record.laptopName, record.reason, record.action, record.performedBy, record.performedByRole]
+      .some(value => String(value || "").toLowerCase().includes(lockHistorySearch.trim().toLowerCase())));
+
   const openLockHistory = async () => {
+    setLockHistorySearch("");
     setShowDropdown(false);
     setShowLockHistory(true);
     setLockHistoryLoading(true);
@@ -1365,8 +1370,6 @@ const Dashboard = () => {
       );
 
       if (!matchesSearch) return false;
-      const operatorQuery = operatorSearch.trim().toLowerCase();
-      if (![device.operatorName, device.operatorId].some(value => String(value || "").toLowerCase().includes(operatorQuery))) return false;
 
       const isLocked = device.lock === true || String(device.status).toLowerCase() === "true";
       if (deviceFilter === "locked") return isLocked;
@@ -1389,7 +1392,7 @@ const Dashboard = () => {
 
       return true;
     });
-  }, [devices, search, deviceFilter, operatorSearch]);
+  }, [devices, search, deviceFilter]);
 
   const filteredAutoLockCandidates = autoLockCandidates.filter(item =>
     !devices.some(device => device.deviceId === item.deviceId && device.isActive === false)).filter(item =>
@@ -1778,7 +1781,6 @@ const Dashboard = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <input type="search" aria-label="Search devices by operator name or ID" placeholder="Search Operator name or ID" value={operatorSearch} onChange={event => setOperatorSearch(event.target.value)} />
             <select
               value={deviceFilter}
               onChange={(e) => setDeviceFilter(e.target.value)}
@@ -2170,11 +2172,14 @@ const Dashboard = () => {
               </div>
               <button onClick={() => setShowLockHistory(false)}>Close</button>
             </div>
-            {lockHistoryLoading ? <p>Loading lock history...</p> : lockHistoryError ? <p style={{ color: "#b91c1c" }}>{lockHistoryError}</p> : lockHistory.length === 0 ? <p>No lock activity has been recorded yet.</p> : (
+            <div style={{ marginTop: "16px", flexShrink: 0 }}>
+              <input type="search" aria-label="Search lock reasons" placeholder="Search operator name, ID, laptop or reason" value={lockHistorySearch} onChange={event => setLockHistorySearch(event.target.value)} style={{ width: "100%", maxWidth: "480px", boxSizing: "border-box", padding: "10px 12px" }} />
+            </div>
+            {lockHistoryLoading ? <p>Loading lock history...</p> : lockHistoryError ? <p style={{ color: "#b91c1c" }}>{lockHistoryError}</p> : lockHistory.length === 0 ? <p>No lock activity has been recorded yet.</p> : filteredLockHistory.length === 0 ? <p>No lock records match your search.</p> : (
               <div style={{ overflow: "auto", marginTop: "16px", flex: 1, minHeight: 0 }}>
                 <table className="device-table" style={{ minWidth: "950px" }}>
                   <thead><tr><th>Date & Time</th><th>Action</th><th>Laptop</th><th>Operator ID</th><th>Operator Name</th><th>Reason</th><th>Performed By</th><th>Role</th></tr></thead>
-                  <tbody>{lockHistory.map((record) => (
+                  <tbody>{filteredLockHistory.map((record) => (
                     <tr key={record._id}>
                       <td>{formatLastSeen(record.createdAt)}</td>
                       <td><span className={`status ${record.action === "locked" ? "locked" : "unlocked"}`}>{record.action === "locked" ? "🔒 Locked" : "🔓 Unlocked"}</span></td>
