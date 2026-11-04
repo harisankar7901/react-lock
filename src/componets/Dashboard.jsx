@@ -1586,7 +1586,7 @@ const Dashboard = () => {
                   📄 Upload Master File (PreDeviceInfo)
                 </button>
               )}
-              {isTopAdmin && (
+              {(role === "admin" || isTopAdmin) && (
                 <button
                   onClick={openLaptopSerialNumberList}
                   style={{
@@ -1616,7 +1616,7 @@ const Dashboard = () => {
                   ✅ Show Approved Software
                 </button>
               )}
-              {isTopAdmin && (
+              {(role === "admin" || isTopAdmin) && (
                 <button
                   onClick={openPerformanceDashboard}
                   style={{
