@@ -1,3 +1,4 @@
+import ConfigureSettings from './ConfigureSettings.jsx';
 import UninstallList from './UninstallList.jsx';
 import './MisReports.css';
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -30,6 +31,7 @@ const UNLOCK_REASON_OPTIONS = [
   "Issue Resolved"
 ];
 const Dashboard = () => {
+  const [showConfigureSettings,setShowConfigureSettings]=useState(false);
   const [devices, setDevices] = useState([]);
   const [maxDeviceAllowed, setMaxDeviceAllowed] = useState(MAX_DEVICE_ALLOWED);
   const [search, setSearch] = useState("");
@@ -1562,6 +1564,7 @@ const Dashboard = () => {
               >
                 ➕ Add Dist Manager
               </button>
+              {role === "superAdmin" && <button onClick={()=>{setShowDropdown(false);setShowConfigureSettings(true);}} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:'none',border:'none',borderBottom:'1px solid #eee',cursor:'pointer'}}>⚙️ Configure Settings</button>}
               {isTopAdmin && (
                 <button
                   onClick={openDeviceRegistrationModal}
@@ -2154,6 +2157,7 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+      {role === "superAdmin" && showConfigureSettings && <ConfigureSettings onClose={()=>setShowConfigureSettings(false)} />}
       {showLockHistory && (
         <div
           className="modal-overlay"
