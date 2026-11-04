@@ -1,0 +1,52 @@
+
+.configure-settings-page {position:fixed;inset:0;z-index:220;overflow:auto;background:linear-gradient(145deg,#eef4fc,#f8fafc 55%,#eef7f6);color:#1e293b;font-family:Inter,"Segoe UI",Arial,sans-serif;}
+.configure-settings-page * {box-sizing:border-box;}
+.configure-settings-page .settings-shell {max-width:1080px;margin:0 auto;padding:44px 28px;}
+.configure-settings-page .settings-header {display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:28px;}
+.configure-settings-page .settings-eyebrow {color:#2563eb;font-size:11px;font-weight:800;letter-spacing:1.8px;}
+.configure-settings-page h2 {font-size:30px;letter-spacing:-.8px;margin:8px 0 10px;color:#142b4b;}
+.configure-settings-page p {font-size:14px;line-height:1.65;color:#64748b;margin:0;}
+.configure-settings-page button {font:inherit;cursor:pointer;}
+.configure-settings-page .settings-close {display:flex;align-items:center;gap:18px;padding:10px 16px;border:1px solid #d7e1ed;border-radius:10px;background:#fff;color:#475569;font-size:13px;}
+.configure-settings-page .settings-close span {font-size:22px;line-height:1;}
+.configure-settings-page .settings-card {margin:0;min-width:0;padding:30px;border:1px solid #e0e7f0;border-radius:18px;background:#fff;box-shadow:0 12px 40px #1e3a5f0b;}
+.configure-settings-page .settings-card-heading {display:flex;justify-content:space-between;gap:20px;align-items:flex-start;margin-bottom:24px;}
+.configure-settings-page h3 {font-size:18px;margin:0 0 6px;color:#193454;}
+.configure-settings-page .settings-timezone {white-space:nowrap;background:#eef4ff;border:1px solid #dbe8ff;color:#2563eb;padding:7px 11px;border-radius:20px;font-size:11px;font-weight:700;}
+.configure-settings-page .settings-toggle-row {display:flex;align-items:center;justify-content:space-between;gap:20px;padding:20px;background:#f7faff;border:1px solid #e0eafb;border-radius:12px;cursor:pointer;}
+.configure-settings-page .settings-toggle-row strong {font-size:15px;}
+.configure-settings-page .settings-toggle-row small {display:block;color:#64748b;font-size:12px;line-height:1.6;margin-top:6px;}
+.configure-settings-page .settings-toggle-control {position:relative;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+.configure-settings-page .settings-toggle-text {font-size:12px;font-weight:600;color:#475569;}
+.configure-settings-page .settings-toggle-control input {position:absolute;right:0;opacity:0;width:46px;height:26px;margin:0;cursor:pointer;}
+.configure-settings-page .settings-switch {width:46px;height:26px;border-radius:20px;background:#94a3b8;pointer-events:none;transition:background .15s;}
+.configure-settings-page .settings-switch:after {content:'';display:block;width:20px;height:20px;background:white;border-radius:50%;margin:3px;box-shadow:0 1px 3px #0002;transition:transform .15s;}
+.configure-settings-page input:checked + .settings-switch {background:#2563eb;}
+.configure-settings-page input:checked + .settings-switch:after {transform:translateX(20px);}
+.configure-settings-page input:focus-visible + .settings-switch {outline:3px solid #93c5fd;outline-offset:3px;}
+.configure-settings-page .settings-fields {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;margin:28px 0;}
+.configure-settings-page .settings-field {min-width:0;display:flex;flex-direction:column;gap:7px;font-size:13px;font-weight:600;}
+.configure-settings-page .settings-field small {font-size:11px;font-weight:400;color:#64748b;margin-bottom:6px;}
+.configure-settings-page .settings-field input {width:100%;min-width:0;height:48px;background:#fff;border:1px solid #cbd5e1;border-radius:9px;padding:10px 13px;font:600 15px "Segoe UI",sans-serif;color:#1e3a5f;}
+.configure-settings-page .settings-number {position:relative;}
+.configure-settings-page .settings-number input {padding-right:85px;}
+.configure-settings-page .settings-number > span {position:absolute;right:28px;top:16px;color:#64748b;font-size:12px;font-weight:400;pointer-events:none;}
+.configure-settings-page .settings-preview {padding:20px 22px;background:#eff6ff;border-radius:12px;color:#385574;}
+.configure-settings-page .settings-preview-label {font-size:10px;font-weight:800;letter-spacing:1.3px;color:#4776ae;}
+.configure-settings-page .settings-preview div {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 8px;font-size:13px;}
+.configure-settings-page .settings-preview strong {color:#1e40af;font-size:16px;}
+.configure-settings-page .settings-preview div > span {margin:0 8px;color:#7b9abe;}
+.configure-settings-page .settings-preview small {font-size:11px;}
+.configure-settings-page .settings-note {margin:24px 0;color:#475569;}
+.configure-settings-page .settings-note strong {font-size:12px;}
+.configure-settings-page .settings-note p {font-size:12px;margin-top:6px;}
+.configure-settings-page .settings-footer {display:flex;align-items:center;justify-content:space-between;gap:20px;border-top:1px solid #e8edf4;padding-top:22px;}
+.configure-settings-page .settings-footer > span {font-size:12px;color:#64748b;}
+.configure-settings-page .settings-save {background:#2563eb;color:#fff;border:0;border-radius:9px;padding:13px 25px;font-size:13px;font-weight:700;box-shadow:0 4px 10px #2563eb25;}
+.configure-settings-page .settings-save:hover {background:#1d4ed8;}
+.configure-settings-page button:focus-visible,.configure-settings-page .settings-field input:focus-visible {outline:3px solid #93c5fd;outline-offset:2px;}
+.configure-settings-page button:disabled {opacity:.6;cursor:wait;}
+.configure-settings-page .settings-alert {padding:14px 18px;border-radius:10px;margin-bottom:18px;font-size:13px;}
+.configure-settings-page .settings-error {background:#fef2f2;color:#b91c1c;}
+.configure-settings-page .settings-success {background:#ecfdf5;color:#047857;}
+@media(max-width:700px){.configure-settings-page .settings-shell{padding:24px 16px;}.configure-settings-page h2{font-size:24px;}.configure-settings-page .settings-card{padding:20px;}.configure-settings-page .settings-fields{grid-template-columns:1fr;gap:20px;}.configure-settings-page .settings-card-heading{flex-direction:column;gap:12px;}.configure-settings-page .settings-toggle-row{align-items:flex-start;flex-direction:column;}.configure-settings-page .settings-footer{align-items:stretch;flex-direction:column;}.configure-settings-page .settings-preview div{line-height:1.8;}}
