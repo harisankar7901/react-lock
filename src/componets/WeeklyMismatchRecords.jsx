@@ -2,6 +2,8 @@ import React,{useEffect,useState} from 'react';
 import api from '../api/api.js';
 export default function WeeklyMismatchRecords({onClose}){
  const [operators,setOperators]=useState([]),[operator,setOperator]=useState(''),[weeks,setWeeks]=useState([]),[week,setWeek]=useState(''),[page,setPage]=useState(1),[result,setResult]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[refresh,setRefresh]=useState(0);
+ const [operatorSearch,setOperatorSearch]=useState('');
+ const matchingOperators=operators.filter(o=>[o.operatorName,o.operatorId].some(value=>String(value||'').toLowerCase().includes(operatorSearch.trim().toLowerCase())));
  const [fromDate,setFromDate]=useState(''),[toDate,setToDate]=useState(''),[range,setRange]=useState(null);
  useEffect(()=>{
   const c=new AbortController();setBusy(true);setError('');setResult(null);
@@ -19,7 +21,7 @@ export default function WeeklyMismatchRecords({onClose}){
   <header style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:16}}><h2 id="weekly-mismatch-title">Weekly Mismatch Records</h2><button onClick={onClose}>Close</button></header>
   <p>Weekly EOD entries missing from daily EOD records, matched by Enrolment No. and Date. Date range searches include weekly reports overlapping the selected dates.</p>
   <div style={{display:'flex',gap:16,flexWrap:'wrap',alignItems:'end',marginBottom:16}}>
-   <label>Operator<select style={{display:'block',padding:10,maxWidth:'100%'}} value={operator} onChange={e=>{setOperator(e.target.value);setRange(null);setWeek('');setWeeks([]);setPage(1);}}><option value="">Select operator</option>{operators.map(o=><option key={o.operatorId} value={o.operatorId}>{o.operatorName || o.operatorId} — {o.operatorId}</option>)}</select></label>
+   <label>Operator<input type="search" aria-label="Search operators by name or ID" placeholder="Search operator name or ID" value={operatorSearch} onChange={e=>setOperatorSearch(e.target.value)} style={{display:'block',padding:10,width:300,maxWidth:'100%',boxSizing:'border-box',marginBottom:6}}/><select style={{display:'block',padding:10,maxWidth:'100%'}} value={operator} onChange={e=>{setOperator(e.target.value);setRange(null);setWeek('');setWeeks([]);setPage(1);}}><option value="">{matchingOperators.length ? 'Select operator' : 'No matching operators'}</option>{operator && !matchingOperators.some(o=>o.operatorId===operator) && <option value={operator} hidden>{operators.find(o=>o.operatorId===operator)?.operatorName || operator} — {operator}</option>}{matchingOperators.map(o=><option key={o.operatorId} value={o.operatorId}>{o.operatorName || o.operatorId} — {o.operatorId}</option>)}</select></label>
    <label>Week / report range<select style={{display:'block',padding:10}} value={week} disabled={!operator||!weeks.length} onChange={e=>{setWeek(e.target.value);setRange(null);setPage(1);}}><option value="">Select week</option>{weeks.map(w=><option key={w.fromDate+'_'+w.toDate} value={w.fromDate+'_'+w.toDate}>{w.fromDate} to {w.toDate}</option>)}</select></label>
    <label>From Date<input type="date" style={{display:'block',padding:10}} value={fromDate} max={toDate||undefined} onChange={e=>setFromDate(e.target.value)}/></label>
    <label>To Date<input type="date" style={{display:'block',padding:10}} value={toDate} min={fromDate||undefined} onChange={e=>setToDate(e.target.value)}/></label>
