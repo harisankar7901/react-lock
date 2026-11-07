@@ -1,3 +1,5 @@
+import UploadOperatorReports from './UploadOperatorReports.jsx';
+import WeeklyMismatchRecords from './WeeklyMismatchRecords.jsx';
 import ConfigureSettings from './ConfigureSettings.jsx';
 import UninstallList from './UninstallList.jsx';
 import './MisReports.css';
@@ -31,6 +33,8 @@ const UNLOCK_REASON_OPTIONS = [
   "Issue Resolved"
 ];
 const Dashboard = () => {
+  const [uploadReportDevice,setUploadReportDevice]=useState(null);
+  const [showWeeklyMismatch,setShowWeeklyMismatch]=useState(false);
   const [showConfigureSettings,setShowConfigureSettings]=useState(false);
   const [devices, setDevices] = useState([]);
   const [maxDeviceAllowed, setMaxDeviceAllowed] = useState(MAX_DEVICE_ALLOWED);
@@ -1565,6 +1569,7 @@ const Dashboard = () => {
                 ➕ Add Dist Manager
               </button>
               {role === "superAdmin" && <button onClick={()=>{setShowDropdown(false);setShowConfigureSettings(true);}} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:'none',border:'none',borderBottom:'1px solid #eee',cursor:'pointer'}}>⚙️ Configure Settings</button>}
+              {(role === 'admin' || isTopAdmin || isDistrictCoordinator) && <button onClick={()=>{setShowDropdown(false);setShowWeeklyMismatch(true);}} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:'none',border:'none',borderBottom:'1px solid #eee',cursor:'pointer'}}>Weekly Mismatch Records</button>}
               {isTopAdmin && (
                 <button
                   onClick={openDeviceRegistrationModal}
@@ -1769,6 +1774,7 @@ const Dashboard = () => {
             <button type="button" onClick={openOperatorPerformanceReport}>All Operator Performance</button>
             <button type="button" onClick={openReportList}>Off Data &amp; EOD Data</button>
             <button type="button" onClick={openLockHistory}>Show Lock Reasons</button>
+            <button type="button" onClick={()=>setShowWeeklyMismatch(true)}>Weekly Mismatch Records</button>
             <button type="button" onClick={openManageAutoLock}>Manage Auto Lock</button>
           </div>
         </section>
@@ -2001,6 +2007,7 @@ const Dashboard = () => {
                           </button>
                         )}
 
+                        {(role === 'superAdmin' || role === 'admin' || isDistrictCoordinator) && <button disabled={device.isActive === false || !device.operatorId} onClick={()=>setUploadReportDevice(device)} style={{padding:'6px 12px',borderRadius:6,border:0,background:'#0f766e',color:'#fff',cursor:'pointer'}}>Upload Reports</button>}
                         {(role === 'admin' || isTopAdmin || isDistrictCoordinator) && (
                         <button
                           className="edit-btn"
@@ -2047,6 +2054,7 @@ const Dashboard = () => {
         )}
       </div>}
 
+      {uploadReportDevice && <UploadOperatorReports device={uploadReportDevice} onClose={()=>setUploadReportDevice(null)} />}
       {lockReasonDevice && (
         <div
           className="modal-overlay"
@@ -2158,6 +2166,7 @@ const Dashboard = () => {
         </div>
       )}
       {role === "superAdmin" && showConfigureSettings && <ConfigureSettings onClose={()=>setShowConfigureSettings(false)} />}
+      {showWeeklyMismatch && <WeeklyMismatchRecords onClose={()=>setShowWeeklyMismatch(false)}/>}
       {showLockHistory && (
         <div
           className="modal-overlay"
