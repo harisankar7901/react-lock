@@ -1,4 +1,3 @@
-import MissingWeeklyReports from './MissingWeeklyReports.jsx';
 import UploadOperatorReports from './UploadOperatorReports.jsx';
 import WeeklyMismatchRecords from './WeeklyMismatchRecords.jsx';
 import ConfigureSettings from './ConfigureSettings.jsx';
@@ -34,7 +33,6 @@ const UNLOCK_REASON_OPTIONS = [
   "Issue Resolved"
 ];
 const Dashboard = () => {
-  const [showMissingWeekly,setShowMissingWeekly]=useState(false);
   const [uploadReportDevice,setUploadReportDevice]=useState(null);
   const [showWeeklyMismatch,setShowWeeklyMismatch]=useState(false);
   const [showConfigureSettings,setShowConfigureSettings]=useState(false);
@@ -2169,7 +2167,6 @@ const Dashboard = () => {
       )}
       {role === "superAdmin" && showConfigureSettings && <ConfigureSettings onClose={()=>setShowConfigureSettings(false)} />}
       {showWeeklyMismatch && <WeeklyMismatchRecords onClose={()=>setShowWeeklyMismatch(false)}/>}
-      {showMissingWeekly && <MissingWeeklyReports onClose={()=>setShowMissingWeekly(false)}/>}
       {showLockHistory && (
         <div
           className="modal-overlay"
@@ -2570,7 +2567,6 @@ const Dashboard = () => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
               <div>
                 <h2 style={{ margin: 0 }}>Operators without MIS Report</h2>
-                <button type="button" onClick={()=>setShowMissingWeekly(true)} style={{marginTop:10,padding:"9px 14px",background:"#b45309",color:"#fff",border:0,borderRadius:5}}>Missing Weekly Report</button>
               </div>
               <button onClick={() => setShowMissingMisModal(false)}>Close</button>
             </div>
