@@ -1,3 +1,4 @@
+import MissingWeeklyReports from './MissingWeeklyReports.jsx';
 import UploadOperatorReports from './UploadOperatorReports.jsx';
 import WeeklyMismatchRecords from './WeeklyMismatchRecords.jsx';
 import ConfigureSettings from './ConfigureSettings.jsx';
@@ -33,6 +34,7 @@ const UNLOCK_REASON_OPTIONS = [
   "Issue Resolved"
 ];
 const Dashboard = () => {
+  const [showMissingWeekly,setShowMissingWeekly]=useState(false);
   const [uploadReportDevice,setUploadReportDevice]=useState(null);
   const [showWeeklyMismatch,setShowWeeklyMismatch]=useState(false);
   const [showConfigureSettings,setShowConfigureSettings]=useState(false);
@@ -1783,6 +1785,7 @@ const Dashboard = () => {
       {/* Device List */}
       {!isMisAdmin && <div className="device-container">
         <div className="device-toolbar">
+          {(role === 'admin' || isTopAdmin || isDistrictCoordinator) && <button type="button" onClick={()=>setShowMissingWeekly(true)} style={{padding:'10px 14px',background:'#b45309',color:'#fff',border:0,borderRadius:6}}>Missing Weekly Report</button>}
           <div className="device-filter-controls">
             <input
               type="text"
@@ -2167,6 +2170,7 @@ const Dashboard = () => {
       )}
       {role === "superAdmin" && showConfigureSettings && <ConfigureSettings onClose={()=>setShowConfigureSettings(false)} />}
       {showWeeklyMismatch && <WeeklyMismatchRecords onClose={()=>setShowWeeklyMismatch(false)}/>}
+      {showMissingWeekly && <MissingWeeklyReports onClose={()=>setShowMissingWeekly(false)}/>}
       {showLockHistory && (
         <div
           className="modal-overlay"
