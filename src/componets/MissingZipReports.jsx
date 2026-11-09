@@ -1,3 +1,4 @@
+import MissingWeeklyReports from './MissingWeeklyReports.jsx';
 import { useEffect, useRef, useState } from 'react';
 import api from '../api/api.js';
 import SelectedOperatorActions from './SelectedOperatorActions.jsx';
@@ -5,6 +6,7 @@ import SelectedOperatorActions from './SelectedOperatorActions.jsx';
 const today = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' });
 
 export default function MissingZipReports({ canManage = false }) {
+    const [showWeekly,setShowWeekly]=useState(false);
     const [open, setOpen] = useState(false);
     const [date, setDate] = useState(today);
     const [busy, setBusy] = useState(false);
@@ -32,6 +34,7 @@ export default function MissingZipReports({ canManage = false }) {
     const close = () => { controller.current?.abort(); setBusy(false); setOpen(false); trigger.current?.focus(); };
 
     return <>
+        {showWeekly && <MissingWeeklyReports onClose={()=>setShowWeekly(false)}/>}
         <button ref={trigger} type="button" onClick={() => load(today())} style={{ padding: '9px 16px', marginLeft: 'auto', background: '#b45309', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer' }}>Missing Today’s EOD Reports</button>
         {open && <div onClick={close} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
             <div role="dialog" aria-modal="true" aria-labelledby="missing-zip-title" onClick={event => event.stopPropagation()} onKeyDown={event => {
@@ -48,6 +51,7 @@ export default function MissingZipReports({ canManage = false }) {
                     <label>Report date<input type="date" value={date} max={today()} disabled={busy} onChange={event => { setDate(event.target.value); setResult(null); setError(''); }} style={{ display: 'block', marginTop: 5, padding: 8 }} /></label>
                     <button type="button" disabled={!date || busy} onClick={() => load(date)} style={{ padding: '9px 16px' }}>{busy ? 'Loading...' : 'Show Operators'}</button>
                 </div>
+                <button type="button" onClick={()=>setShowWeekly(true)} style={{padding:"9px 14px",marginTop:12,background:"#b45309",color:"#fff",border:0,borderRadius:5}}>Missing Weekly Report</button>
                 {busy ? <p role="status">Loading missing EOD reports...</p> : error ? <p role="alert" style={{ color: '#d93025' }}>{error}</p> : result ? result.data.length === 0 ? <p>All assigned operators have uploaded a EOD report for {result.date}.</p> : <>
                     <p>{result.data.length} operators without a EOD report for {result.date}.</p>
                     <SelectedOperatorActions selectedOperators={result.data.filter(operator => selectedOperatorIds.includes(operator.operatorId))} onClearSelection={() => setSelectedOperatorIds([])} canManage={canManage} />

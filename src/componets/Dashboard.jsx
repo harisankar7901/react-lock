@@ -1785,7 +1785,6 @@ const Dashboard = () => {
       {/* Device List */}
       {!isMisAdmin && <div className="device-container">
         <div className="device-toolbar">
-          {(role === 'admin' || isTopAdmin || isDistrictCoordinator) && <button type="button" onClick={()=>setShowMissingWeekly(true)} style={{padding:'10px 14px',background:'#b45309',color:'#fff',border:0,borderRadius:6}}>Missing Weekly Report</button>}
           <div className="device-filter-controls">
             <input
               type="text"
@@ -2571,6 +2570,7 @@ const Dashboard = () => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
               <div>
                 <h2 style={{ margin: 0 }}>Operators without MIS Report</h2>
+                <button type="button" onClick={()=>setShowMissingWeekly(true)} style={{marginTop:10,padding:"9px 14px",background:"#b45309",color:"#fff",border:0,borderRadius:5}}>Missing Weekly Report</button>
               </div>
               <button onClick={() => setShowMissingMisModal(false)}>Close</button>
             </div>
