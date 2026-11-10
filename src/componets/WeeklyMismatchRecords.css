@@ -1,0 +1,7 @@
+.weekly-mismatch-page > header button,.weekly-mismatch-page > form button {padding:10px 16px;border:0;border-radius:6px;background:#b45309;color:#fff;font:600 13px "Segoe UI",sans-serif;cursor:pointer;box-shadow:0 2px 5px #0001;}
+.weekly-mismatch-page > header button:hover,.weekly-mismatch-page > form button:hover {background:#92400e;}
+.weekly-mismatch-page > form button:disabled {opacity:.55;cursor:wait;}
+.weekly-mismatch-page > form label {font-size:12px;font-weight:600;color:#334155;}
+.weekly-mismatch-page > form input {display:block;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;min-height:39px;margin-top:5px;color:#1e293b;}
+.weekly-mismatch-page > form input[type=search] {width:260px;max-width:100%;}
+.weekly-mismatch-page > form input:focus,.weekly-mismatch-page > form button:focus-visible,.weekly-mismatch-page > header button:focus-visible {outline:2px solid #d97706;outline-offset:2px;}
