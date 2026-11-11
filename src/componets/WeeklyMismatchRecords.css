@@ -8,3 +8,11 @@
 
 .weekly-mismatch-page > form select {display:block;padding:10px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;min-height:39px;margin-top:5px;color:#1e293b;font:inherit;}
 .weekly-mismatch-page > form select:focus-visible {outline:2px solid #d97706;outline-offset:2px;}
+
+.missing-weekly-tables {flex:1;min-height:0;display:flex;flex-direction:column;background:#fff;padding:12px;overflow:hidden;}
+.missing-weekly-tables h3 {margin:0 0 8px;flex-shrink:0;}
+.missing-weekly-scroll {height:220px;max-height:40%;flex-shrink:0;overflow:auto;}
+.invalid-weekly-section {flex:1;min-height:0;display:flex;flex-direction:column;margin-top:16px;padding-top:12px;border-top:2px solid #e2e8f0;}
+.invalid-weekly-section > p {margin:0 0 8px;font-size:12px;}
+.invalid-weekly-scroll {flex:1;min-height:0;overflow:auto;}
+.missing-weekly-tables .device-table thead {position:sticky;top:0;z-index:1;background:#1e4e8c;}
