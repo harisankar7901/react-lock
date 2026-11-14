@@ -1,3 +1,4 @@
+import LockHistory from './LockHistory.jsx';
 import UploadOperatorReports from './UploadOperatorReports.jsx';
 import WeeklyMismatchRecords from './WeeklyMismatchRecords.jsx';
 import ConfigureSettings from './ConfigureSettings.jsx';
@@ -51,9 +52,6 @@ const Dashboard = () => {
   const [lockReasonError, setLockReasonError] = useState("");
   const [showUninstallList, setShowUninstallList] = useState(false);
   const [showLockHistory, setShowLockHistory] = useState(false);
-  const [lockHistory, setLockHistory] = useState([]);
-  const [lockHistoryLoading, setLockHistoryLoading] = useState(false);
-  const [lockHistoryError, setLockHistoryError] = useState("");
   const [showUserList, setShowUserList] = useState(false);
   const [users, setUsers] = useState([]);
   const [usersLoading, setUsersLoading] = useState(false);
@@ -94,7 +92,6 @@ const Dashboard = () => {
   const [holidayError, setHolidayError] = useState("");
   const [holidaySuccess, setHolidaySuccess] = useState("");
   const [autoLockSearch, setAutoLockSearch] = useState("");
-  const [lockHistorySearch, setLockHistorySearch] = useState("");
   const [showManageAutoLock, setShowManageAutoLock] = useState(false);
   const [autoLockCandidates, setAutoLockCandidates] = useState([]);
   const [autoLockReportDate, setAutoLockReportDate] = useState("");
@@ -1246,26 +1243,7 @@ const Dashboard = () => {
     }
   };
 
-  const filteredLockHistory = lockHistory.filter(record =>
-    [record.operatorName, record.operatorId, record.laptopName, record.reason, record.action, record.performedBy, record.performedByRole]
-      .some(value => String(value || "").toLowerCase().includes(lockHistorySearch.trim().toLowerCase())));
-
-  const openLockHistory = async () => {
-    setLockHistorySearch("");
-    setShowDropdown(false);
-    setShowLockHistory(true);
-    setLockHistoryLoading(true);
-    setLockHistoryError("");
-    try {
-      const response = await api.get("devices/lock-history");
-      setLockHistory(response.data.data || []);
-    } catch (error) {
-      console.error("Get lock history error:", error);
-      setLockHistoryError(error.response?.data?.message || "Unable to load lock history.");
-    } finally {
-      setLockHistoryLoading(false);
-    }
-  };
+  const openLockHistory = () => { setShowDropdown(false); setShowLockHistory(true); };
 
   // Open edit modal, pre-fill form with existing values
   const openEditModal = (device) => {
@@ -2167,49 +2145,7 @@ const Dashboard = () => {
       )}
       {role === "superAdmin" && showConfigureSettings && <ConfigureSettings onClose={()=>setShowConfigureSettings(false)} />}
       {showWeeklyMismatch && <WeeklyMismatchRecords onClose={()=>setShowWeeklyMismatch(false)}/>}
-      {showLockHistory && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowLockHistory(false)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
-        >
-          <div
-            className="modal-content"
-            onClick={(event) => event.stopPropagation()}
-            style={{ background: "#fff", borderRadius: 0, padding: "20px", width: "100%", height: "100%", maxWidth: "100%", maxHeight: "100%", margin: 0, boxSizing: "border-box", overflow: "hidden", display: "flex", flexDirection: "column" }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", flexShrink: 0 }}>
-              <div>
-                <h2 style={{ margin: 0 }}>Lock & Unlock History</h2>
-                <small style={{ color: "#64748b" }}>Most recent 1,000 actions</small>
-              </div>
-              <button onClick={() => setShowLockHistory(false)}>Close</button>
-            </div>
-            <div style={{ marginTop: "16px", flexShrink: 0 }}>
-              <input type="search" aria-label="Search lock reasons" placeholder="Search operator name, ID, laptop or reason" value={lockHistorySearch} onChange={event => setLockHistorySearch(event.target.value)} style={{ width: "100%", maxWidth: "480px", boxSizing: "border-box", padding: "10px 12px" }} />
-            </div>
-            {lockHistoryLoading ? <p>Loading lock history...</p> : lockHistoryError ? <p style={{ color: "#b91c1c" }}>{lockHistoryError}</p> : lockHistory.length === 0 ? <p>No lock activity has been recorded yet.</p> : filteredLockHistory.length === 0 ? <p>No lock records match your search.</p> : (
-              <div style={{ overflow: "auto", marginTop: "16px", flex: 1, minHeight: 0 }}>
-                <table className="device-table" style={{ minWidth: "950px" }}>
-                  <thead><tr><th>Date & Time</th><th>Action</th><th>Laptop</th><th>Operator ID</th><th>Operator Name</th><th>Reason</th><th>Performed By</th><th>Role</th></tr></thead>
-                  <tbody>{filteredLockHistory.map((record) => (
-                    <tr key={record._id}>
-                      <td>{formatLastSeen(record.createdAt)}</td>
-                      <td><span className={`status ${record.action === "locked" ? "locked" : "unlocked"}`}>{record.action === "locked" ? "🔒 Locked" : "🔓 Unlocked"}</span></td>
-                      <td>{record.laptopName || "-"}</td>
-                      <td>{record.operatorId || "-"}</td>
-                      <td>{record.operatorName || "-"}</td>
-                      <td style={{ whiteSpace: "normal", minWidth: "220px" }}>{record.reason || "-"}</td>
-                      <td>{record.performedBy || "-"}</td>
-                      <td>{record.performedByRole || "-"}</td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      {showLockHistory && <LockHistory onClose={()=>setShowLockHistory(false)}/> }
 
       {showReports && (
         <div

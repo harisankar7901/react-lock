@@ -30,13 +30,13 @@ export async function createManagementWorkbook({ title, subtitle, columns, rows,
 }
 
 export function performanceExportOptions(rows, totals, fromDate, toDate) {
-  const values = row => [String(row.name || '-').toUpperCase(), row.totalOperators, row.dataCollected, row.totalCollection, row.offGovtMisCount, row.eodMisCount, row.holidayDays, row.expectedDays ? row.eligibleReports / (2 * row.expectedDays) : 'N/A'];
+  const values = row => [String(row.name || '-').toUpperCase(), row.totalOperators, row.dataCollected, row.totalCollection, row.offGovtMisCount, row.eodMisCount, row.holidayDays, row.zeroData || 0, row.expectedDays ? row.eligibleReports / (2 * row.expectedDays) : 'N/A'];
   return {
     title: 'District Manager Performance Report', subtitle: `Date range: ${fromDate} to ${toDate} | Managers: ${rows.length}`,
     columns: [
       { title: 'Dist Manager Name', width: 32 }, { title: 'Total Operator' }, { title: 'Total Data' },
       { title: 'Total Collection', format: '#,##0.00' }, { title: 'OFF Govt. Portal MIS', width: 26 },
-      { title: 'EOD MIS Report' }, { title: 'Holiday Days' }, { title: '% of Compliance', format: '0.00%' }
+      { title: 'EOD MIS Report' }, { title: 'Leaves' }, { title: 'Zero Data' }, { title: '% of Compliance', format: '0.00%' }
  ], rows: rows.map(values), totals: values({ ...totals, name: 'Grand Total' })
   };
 }
