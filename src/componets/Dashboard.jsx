@@ -1,3 +1,4 @@
+import MissingMisReports from './MissingMisReports.jsx';
 import LockHistory from './LockHistory.jsx';
 import UploadOperatorReports from './UploadOperatorReports.jsx';
 import WeeklyMismatchRecords from './WeeklyMismatchRecords.jsx';
@@ -143,12 +144,6 @@ const Dashboard = () => {
   const [misCoordinatorEmail, setMisCoordinatorEmail] = useState(
     () => isDistrictCoordinator ? loggedInCoordinatorEmail : ""
   );
-  const [missingMisOperators, setMissingMisOperators] = useState([]);
-  const [missingMisDate, setMissingMisDate] = useState("");
-  const [missingMisLoading, setMissingMisLoading] = useState(false);
-  const [missingMisError, setMissingMisError] = useState("");
-  const [showMissingMisModal, setShowMissingMisModal] = useState(false);
-  const [selectedMissingMisIds, setSelectedMissingMisIds] = useState([]);
   const [showUsbTodayModal, setShowUsbTodayModal] = useState(false);
   const [showLaptopSerialNumbers, setShowLaptopSerialNumbers] = useState(false);
   const [uninstallingSoftwareId, setUninstallingSoftwareId] = useState("");
@@ -1068,26 +1063,7 @@ const Dashboard = () => {
     }
   };
 
-  const loadMissingTodayMisReports = async (date = getTodayForDateInput()) => {
-    setMissingMisOperators([]);
-    setSelectedMissingMisIds([]);
-    setMissingMisError("");
-    setShowMissingMisModal(false);
-    setMissingMisLoading(true);
-    try {
-      const response = await api.get("devices/reports/missing-enrolment-records", {
-        params: { date }
-      });
-      setMissingMisOperators(response.data.data || []);
-      setMissingMisDate(response.data.date || getTodayForDateInput());
-      setShowMissingMisModal(true);
-    } catch (error) {
-      console.error("Fetch missing MIS reports error:", error);
-      setMissingMisError(error.response?.data?.message || "Unable to load missing MIS reports.");
-    } finally {
-      setMissingMisLoading(false);
-    }
-  };
+
 
   const loadTodayUsbDevices = async () => {
     setUsbTodayRecords([]);
@@ -2223,11 +2199,8 @@ const Dashboard = () => {
                   <button onClick={downloadMisReportExcel} disabled={!misRecords.length || misRecordsLoading} style={{ padding: "9px 16px", background: "#166534", color: "#fff", border: "none", borderRadius: "5px", cursor: !misRecords.length || misRecordsLoading ? "not-allowed" : "pointer", opacity: !misRecords.length || misRecordsLoading ? 0.6 : 1 }}>
                     ⬇ Download Excel
                   </button>
-                  <button onClick={() => loadMissingTodayMisReports()} disabled={missingMisLoading} style={{ padding: "9px 16px", marginLeft: "auto", background: "#b45309", color: "#fff", border: "none", borderRadius: "5px", cursor: missingMisLoading ? "wait" : "pointer" }}>
-                    {missingMisLoading ? "Loading..." : "Missing Today’s MIS Reports"}
-                  </button>
+                  <MissingMisReports canManage={role === "admin" || isTopAdmin || isDistrictCoordinator} />
                 </div>
-                {missingMisError && <p style={{ color: "#d93025" }}>{missingMisError}</p>}
                 {misRecordsError ? <p style={{ color: "#d93025" }}>{misRecordsError}</p> : misRecordsLoading ? <p>Loading MIS report data...</p> : misRecords.length === 0 ? <p>No MIS data found for the selected date range.</p> : (
                   <div className="mis-report-table-scroll">
                     <table className="mis-report-table">
@@ -2488,61 +2461,6 @@ const Dashboard = () => {
       )}
       {showPerformanceDashboard && <PerformanceDashboard onClose={() => setShowPerformanceDashboard(false)} />}
       {showOperatorPerformanceReport && <PerformanceDashboard reportType="operator" onClose={() => setShowOperatorPerformanceReport(false)} />}
-
-      {showMissingMisModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowMissingMisModal(false)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 200 }}
-        >
-          <div
-            className="modal-content"
-            onClick={(event) => event.stopPropagation()}
-            style={{ background: "#fff", borderRadius: "8px", padding: "24px", width: "620px", maxWidth: "90%", maxHeight: "80vh", display: "flex", flexDirection: "column" }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
-              <div>
-                <h2 style={{ margin: 0 }}>Operators without MIS Report</h2>
-              </div>
-              <button onClick={() => setShowMissingMisModal(false)}>Close</button>
-            </div>
-            <div style={{ display: "flex", alignItems: "end", gap: "10px", marginTop: "16px" }}>
-              <label>
-                Report date
-                <input
-                  type="date"
-                  value={missingMisDate}
-                  max={getTodayForDateInput()}
-                  onChange={(event) => setMissingMisDate(event.target.value)}
-                  style={{ display: "block", marginTop: "5px", padding: "8px" }}
-                />
-              </label>
-              <button
-                onClick={() => loadMissingTodayMisReports(missingMisDate)}
-                disabled={!missingMisDate || missingMisLoading}
-                style={{ padding: "9px 16px" }}
-              >
-                {missingMisLoading ? "Loading..." : "Show Operators"}
-              </button>
-            </div>
-            {missingMisOperators.length === 0 ? <p>All assigned operators have uploaded today’s MIS report.</p> : (
-              <div style={{ overflow: "auto", marginTop: "16px" }}>
-                <SelectedOperatorActions
-                  selectedOperators={missingMisOperators.filter((operator) => selectedMissingMisIds.includes(operator.operatorId))}
-                  onClearSelection={() => setSelectedMissingMisIds([])}
-                  canManage={role === "admin" || isTopAdmin || isDistrictCoordinator}
-                />
-                <table style={{ width: "100%" }}>
-                  <thead><tr><th><input type="checkbox" checked={missingMisOperators.length > 0 && missingMisOperators.every((operator) => selectedMissingMisIds.includes(operator.operatorId))} onChange={() => setSelectedMissingMisIds((selected) => selected.length === missingMisOperators.length ? [] : missingMisOperators.map((operator) => operator.operatorId))} aria-label="Select all operators" /></th><th>Sl#</th><th>Operator ID</th><th>Operator Name</th></tr></thead>
-                  <tbody>{missingMisOperators.map((operator, index) => (
-                    <tr key={operator.operatorId}><td><input type="checkbox" checked={selectedMissingMisIds.includes(operator.operatorId)} onChange={() => setSelectedMissingMisIds((selected) => selected.includes(operator.operatorId) ? selected.filter((id) => id !== operator.operatorId) : [...selected, operator.operatorId])} aria-label={`Select ${operator.operatorId}`} /></td><td>{index + 1}</td><td>{operator.operatorId}</td><td>{displayValue(operator.operatorName)}</td></tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {showUsbTodayModal && (
         <div
