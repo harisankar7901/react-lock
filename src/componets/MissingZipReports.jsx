@@ -36,7 +36,7 @@ export default function MissingZipReports({ canManage = false, role }) {
     const close = () => { controller.current?.abort(); setBusy(false); setOpen(false); trigger.current?.focus(); };
 
     const managerOptions=[...new Set((result?.data||[]).map(o=>o.managerName||'Unassigned'))].sort((a,b)=>a.localeCompare(b));
-    const visible=(result?.data||[]).filter(o=>hideManagerFilter||!manager||(o.managerName||'Unassigned')===manager);
+    const visible=(result?.data||[]).filter(o=>hideManagerFilter||!manager||(o.managerName||'Unassigned')===manager).sort((a,b)=>String(a.managerName||'Unassigned').localeCompare(String(b.managerName||'Unassigned'))||String(a.operatorName||'').localeCompare(String(b.operatorName||''))||String(a.operatorId).localeCompare(String(b.operatorId)));
     return <>
         <button ref={trigger} type="button" onClick={() => load(today())} style={{ padding: '9px 16px', marginLeft: 'auto', background: '#b45309', color: '#fff', border: 'none', borderRadius: 5, cursor: 'pointer' }}>Missing Today’s EOD Reports</button>
         {open && <div onClick={close} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }}>
