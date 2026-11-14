@@ -2199,7 +2199,7 @@ const Dashboard = () => {
                   <button onClick={downloadMisReportExcel} disabled={!misRecords.length || misRecordsLoading} style={{ padding: "9px 16px", background: "#166534", color: "#fff", border: "none", borderRadius: "5px", cursor: !misRecords.length || misRecordsLoading ? "not-allowed" : "pointer", opacity: !misRecords.length || misRecordsLoading ? 0.6 : 1 }}>
                     ⬇ Download Excel
                   </button>
-                  <MissingMisReports canManage={role === "admin" || isTopAdmin || isDistrictCoordinator} />
+                  <MissingMisReports role={role} canManage={role === "admin" || isTopAdmin || isDistrictCoordinator} />
                 </div>
                 {misRecordsError ? <p style={{ color: "#d93025" }}>{misRecordsError}</p> : misRecordsLoading ? <p>Loading MIS report data...</p> : misRecords.length === 0 ? <p>No MIS data found for the selected date range.</p> : (
                   <div className="mis-report-table-scroll">
