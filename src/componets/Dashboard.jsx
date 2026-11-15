@@ -1366,7 +1366,7 @@ const Dashboard = () => {
   const filteredAutoLockCandidates = autoLockCandidates.filter(item=>isDistrictCoordinator||!autoLockManager||(item.distCoordinatorName||'Unassigned')===autoLockManager).filter(item => autoLockStatus === "all" || (autoLockStatus === "disabled" ? item.isAutoLockDisabled : !item.isAutoLockDisabled)).filter(item =>
     !devices.some(device => device.deviceId === item.deviceId && device.isActive === false)).filter(item =>
     [item.operatorName, item.operatorId].some(value =>
-      String(value || "").toLowerCase().includes(autoLockSearch.trim().toLowerCase())));
+      String(value || "").toLowerCase().includes(autoLockSearch.trim().toLowerCase()))).sort((a,b)=>String(a.distCoordinatorName||'Unassigned').localeCompare(String(b.distCoordinatorName||'Unassigned'))||String(a.operatorName||'').localeCompare(String(b.operatorName||''))||String(a.operatorId).localeCompare(String(b.operatorId))||String(a.reportDate).localeCompare(String(b.reportDate))||String(a.deviceId).localeCompare(String(b.deviceId)));
 
   const downloadAutoLockExcel = async () => {
     if (autoLockLoading || autoLockSaving || autoLockExporting || !filteredAutoLockCandidates.length || (autoLockReportDate !== autoLockLoadedDate || autoLockToDate !== autoLockLoadedToDate)) return;
