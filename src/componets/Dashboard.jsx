@@ -2357,11 +2357,11 @@ const Dashboard = () => {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px" }}>
               <div>
                 <h2 style={{ margin: 0 }}>{lockReasonReport?"LockReason Report":"Manage Auto Lock"}</h2>
-                <div role="note" style={{ marginTop: 10, padding: "10px 14px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, color: "#1e3a5f" }}>
+                {!lockReasonReport&&<div role="note" style={{ marginTop: 10, padding: "10px 14px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, color: "#1e3a5f" }}>
                   <p lang="or" style={{ margin: 0, lineHeight: 1.7 }}>ଯଦି ଅପରେଟରଙ୍କ ପାଖରେ ଅପଲୋଡ୍ କରିବା ପାଇଁ କୌଣସି ଡାଟା ନାହିଁ।</p>
                   <p lang="en" style={{ margin: "4px 0 0" }}>If operator has zero data to upload</p>
-                </div>
-                <p style={{ margin: "6px 0 0", color: "#4b5563" }}>Operators below have not uploaded one or both required reports. Disabling applies only to the displayed report date.</p>
+                </div>}
+                <p style={{ margin: "6px 0 0", color: "#4b5563" }}>Operators below have not uploaded one or both required reports.{!lockReasonReport&&" Disabling applies only to the displayed report date."}</p>
               </div>
               <button type="button" onClick={() => setShowManageAutoLock(false)} disabled={autoLockSaving}>Close</button>
             </div>
@@ -2378,7 +2378,7 @@ const Dashboard = () => {
               <label>Operator
                 <input type="search" placeholder="Search Operator name or ID" value={autoLockSearch} onChange={event => setAutoLockSearch(event.target.value)} disabled={autoLockSaving} style={{ display: "block", marginTop: 5, padding: 8 }} />
               </label>
-              <span style={{ color: "#1e3a5f", fontWeight: 600 }}>{selectedAutoLockDeviceIds.length} selected ({filteredAutoLockCandidates.length} shown)</span>
+              <span style={{ color: "#1e3a5f", fontWeight: 600 }}>{!lockReasonReport&&`${selectedAutoLockDeviceIds.length} selected · `}{filteredAutoLockCandidates.length} shown</span>
             </div>
             {lockReasonReport&&<p style={{margin:'0 0 12px',color:'#475569'}}>Shows missing reports dated within the selected From Date and To Date. Dates are not shifted to the previous day.</p>}
             {autoLockError && <p role="alert" style={{ color: "#d93025", marginTop: 0 }}>{autoLockError}</p>}
@@ -2386,19 +2386,19 @@ const Dashboard = () => {
             <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: "6px", flex: 1, minHeight: 0 }}>
               <table className="device-table" style={{ minWidth: "900px" }}>
                 <thead><tr>
-                  <th><input type="checkbox" checked={filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).length > 0 && filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).every((item) => selectedAutoLockDeviceIds.includes(autoLockKey(item)))} onChange={() => {
+                  {!lockReasonReport&&<th><input type="checkbox" checked={filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).length > 0 && filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).every((item) => selectedAutoLockDeviceIds.includes(autoLockKey(item)))} onChange={() => {
                     const selectableIds = filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).map(autoLockKey);
                     setSelectedAutoLockDeviceIds((selected) => selectableIds.every(id => selected.includes(id))
                       ? selected.filter(id => !selectableIds.includes(id))
                       : [...new Set([...selected, ...selectableIds])]);
-                  }} disabled={autoLockLoading || autoLockSaving || !filteredAutoLockCandidates.some(item => !item.isAutoLockDisabled)} aria-label="Select all visible eligible devices" /></th>
+                  }} disabled={autoLockLoading || autoLockSaving || !filteredAutoLockCandidates.some(item => !item.isAutoLockDisabled)} aria-label="Select all visible eligible devices" /></th>}
                   <th>Sl#</th><th>Laptop Name</th><th>Operator ID</th><th>Operator Name</th><th>Dist. Manager Name</th><th>Missing Report</th><th>Auto Lock</th>{lockReasonReport&&<th>Date Range (Missing Reports)</th>}
                 </tr></thead>
                 <tbody>
-                  {autoLockLoading ? <tr><td colSpan={lockReasonReport?9:8} className="no-data">Loading...</td></tr> : autoLockCandidates.length === 0 ? <tr><td colSpan={lockReasonReport?9:8} className="no-data">No operators need auto-lock management for these dates. Sundays and operators on holiday are excluded.</td></tr> : filteredAutoLockCandidates.length === 0 ? <tr><td colSpan={lockReasonReport?9:8} className="no-data">No operators match your search.</td></tr> : filteredAutoLockCandidates.map((item, index) => {
+                  {autoLockLoading ? <tr><td colSpan={8} className="no-data">Loading...</td></tr> : autoLockCandidates.length === 0 ? <tr><td colSpan={8} className="no-data">No operators need auto-lock management for these dates. Sundays and operators on holiday are excluded.</td></tr> : filteredAutoLockCandidates.length === 0 ? <tr><td colSpan={8} className="no-data">No operators match your search.</td></tr> : filteredAutoLockCandidates.map((item, index) => {
                     const missingText = item.missingOffGovtMis && item.missingEodMis ? "OFF MIS and EOD MIS" : item.missingOffGovtMis ? "OFF MIS" : "EOD MIS";
                     return <tr key={autoLockKey(item)} style={{ opacity: item.isAutoLockDisabled ? 0.55 : 1 }}>
-                      <td><input type="checkbox" checked={selectedAutoLockDeviceIds.includes(autoLockKey(item))} onChange={() => toggleAutoLockDevice(autoLockKey(item))} disabled={autoLockSaving || item.isAutoLockDisabled} aria-label={`Select ${item.operatorId}`} /></td>
+                      {!lockReasonReport&&<td><input type="checkbox" checked={selectedAutoLockDeviceIds.includes(autoLockKey(item))} onChange={() => toggleAutoLockDevice(autoLockKey(item))} disabled={autoLockSaving || item.isAutoLockDisabled} aria-label={`Select ${item.operatorId}`} /></td>}
                       <td>{index + 1}</td><td>{displayValue(item.laptopName)}</td><td>{displayValue(item.operatorId)}</td><td>{displayValue(item.operatorName)}</td><td>{displayValue(item.distCoordinatorName)}</td><td>{missingText}</td><td>{item.isAutoLockDisabled ? "Disabled" : "Enabled"}<small style={{display:'block'}}>For {item.reportDate}</small></td>{lockReasonReport&&<td style={{whiteSpace:'normal',minWidth:240}}>{item.missingFromDate} to {item.missingToDate}<div style={{marginTop:6}}>{item.missingDates?.map(day=><div key={day} style={{lineHeight:1.7}}>{day}</div>)}</div></td>}
                     </tr>;
                   })}
@@ -2407,7 +2407,7 @@ const Dashboard = () => {
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "18px" }}>
               <button type="button" onClick={() => setShowManageAutoLock(false)} disabled={autoLockSaving}>Close</button>
-              <button type="button" onClick={disableSelectedAutoLocks} disabled={autoLockLoading || autoLockSaving || !selectedAutoLockDeviceIds.length || autoLockReportDate!==autoLockLoadedDate || autoLockToDate!==autoLockLoadedToDate} style={{ background: "#b91c1c", color: "#fff", border: "none", borderRadius: "5px", padding: "8px 14px", cursor: autoLockSaving ? "wait" : "pointer" }}>{autoLockSaving ? "Disabling..." : "Disable Auto Lock"}</button>
+              {!lockReasonReport&&<button type="button" onClick={disableSelectedAutoLocks} disabled={autoLockLoading || autoLockSaving || !selectedAutoLockDeviceIds.length || autoLockReportDate!==autoLockLoadedDate || autoLockToDate!==autoLockLoadedToDate} style={{ background: "#b91c1c", color: "#fff", border: "none", borderRadius: "5px", padding: "8px 14px", cursor: autoLockSaving ? "wait" : "pointer" }}>{autoLockSaving ? "Disabling..." : "Disable Auto Lock"}</button>}
             </div>
           </div>
         </div>
