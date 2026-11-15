@@ -95,6 +95,11 @@ const Dashboard = () => {
   const [autoLockSearch, setAutoLockSearch] = useState("");
   const [showManageAutoLock, setShowManageAutoLock] = useState(false);
   const [autoLockCandidates, setAutoLockCandidates] = useState([]);
+  const [autoLockToDate,setAutoLockToDate]=useState('');
+  const [autoLockLoadedToDate,setAutoLockLoadedToDate]=useState('');
+  const [autoLockStatus,setAutoLockStatus]=useState('all');
+  const [autoLockManager,setAutoLockManager]=useState('');
+  const autoLockKey=item=>item.deviceId+'|'+item.reportDate;
   const [autoLockReportDate, setAutoLockReportDate] = useState("");
   const [autoLockLoadedDate, setAutoLockLoadedDate] = useState("");
   const [autoLockExporting, setAutoLockExporting] = useState(false);
@@ -639,10 +644,10 @@ const Dashboard = () => {
       setHolidaySuccess(response.data?.message || "Holiday saved successfully.");
       setHolidayStatusLoading(true);
       setHolidayRefresh(value => value + 1);
-      if (autoLockLoadedDate && holidayFromDate <= autoLockLoadedDate && holidayToDate >= autoLockLoadedDate) {
+      if (autoLockLoadedDate && holidayFromDate <= autoLockLoadedToDate && holidayToDate >= autoLockLoadedDate) {
         const savedIds = new Set(holidayDeviceIds);
-        setAutoLockCandidates(items => items.filter(item => !savedIds.has(item.deviceId)));
-        setSelectedAutoLockDeviceIds(ids => ids.filter(id => !savedIds.has(id)));
+        setAutoLockCandidates(items => items.filter(item => !(savedIds.has(item.deviceId) && item.reportDate>=holidayFromDate && item.reportDate<=holidayToDate)));
+        setSelectedAutoLockDeviceIds([]);
       }
       setHolidayDeviceIds([]);
     } catch (error) {
@@ -652,7 +657,7 @@ const Dashboard = () => {
     }
   };
 
-  const loadAutoLockCandidates = async (reportDate = "") => {
+  const loadAutoLockCandidates = async (reportDate = "", toDate = reportDate) => {
     setAutoLockCandidates([]);
     setSelectedAutoLockDeviceIds([]);
     setAutoLockLoadedDate("");
@@ -660,14 +665,12 @@ const Dashboard = () => {
     setAutoLockError("");
     setAutoLockSuccess("");
     try {
-      const response = await api.get("devices/auto-lock-management", { params: reportDate ? { reportDate } : {} });
-      const loadedDate = response.data?.reportDate || reportDate;
-      const holidays = await api.get("devices/holidays", { params: { fromDate: loadedDate, toDate: loadedDate } });
-      const holidayIds = new Set((holidays.data?.data || []).filter(item =>
-        item.fromDate <= loadedDate && item.toDate >= loadedDate).map(item => item.deviceId));
-      setAutoLockCandidates((response.data?.data || []).filter(item => !item.isHoliday && !holidayIds.has(item.deviceId)));
-      setAutoLockReportDate(response.data?.reportDate || reportDate);
-      setAutoLockLoadedDate(response.data?.reportDate || reportDate);
+      const response = await api.get("devices/auto-lock-management", { params: reportDate ? { fromDate:reportDate,toDate } : {} });
+      const loadedDate=response.data?.fromDate||response.data?.reportDate||reportDate;
+      const loadedTo=response.data?.toDate||loadedDate;
+      setAutoLockCandidates((response.data?.data||[]).filter(item=>!item.isHoliday).map(item=>({...item,reportDate:item.reportDate||loadedDate})));
+      setAutoLockReportDate(loadedDate);setAutoLockToDate(loadedTo);
+      setAutoLockLoadedDate(loadedDate);setAutoLockLoadedToDate(loadedTo);
       setSelectedAutoLockDeviceIds([]);
     } catch (error) {
       setAutoLockError(error.response?.data?.message || "Unable to load automatic lock details.");
@@ -678,7 +681,7 @@ const Dashboard = () => {
 
   const openManageAutoLock = () => {
     setShowDropdown(false);
-    setAutoLockSearch("");
+    setAutoLockSearch("");setAutoLockStatus("all");setAutoLockManager('');
     setShowManageAutoLock(true);
     loadAutoLockCandidates();
   };
@@ -694,17 +697,18 @@ const Dashboard = () => {
       setAutoLockError("Select at least one operator.");
       return;
     }
-    if (!window.confirm(`Disable automatic lock for ${selectedAutoLockDeviceIds.length} selected device(s) on ${autoLockReportDate}?`)) return;
+    if (!window.confirm(`Disable automatic lock for ${selectedAutoLockDeviceIds.length} selected device/date row(s) from ${autoLockLoadedDate} to ${autoLockLoadedToDate}?`)) return;
     setAutoLockSaving(true);
     setAutoLockError("");
     setAutoLockSuccess("");
     try {
-      const response = await api.post("devices/auto-lock-management/disable", {
-        reportDate: autoLockReportDate,
-        deviceIds: selectedAutoLockDeviceIds
-      });
-      await loadAutoLockCandidates(autoLockReportDate);
-      setAutoLockSuccess(response.data?.message || "Automatic lock disabled for the selected devices.");
+      const selected=autoLockCandidates.filter(item=>selectedAutoLockDeviceIds.includes(autoLockKey(item))&&!item.isAutoLockDisabled);
+      for(const day of [...new Set(selected.map(item=>item.reportDate))]){
+        const ids=selected.filter(item=>item.reportDate===day).map(item=>item.deviceId);
+        for(let i=0;i<ids.length;i+=350)await api.post('devices/auto-lock-management/disable',{reportDate:day,deviceIds:ids.slice(i,i+350)});
+      }
+      await loadAutoLockCandidates(autoLockLoadedDate,autoLockLoadedToDate);
+      setAutoLockSuccess('Automatic lock disabled for the selected device/date rows.');
     } catch (error) {
       setAutoLockError(error.response?.data?.message || "Unable to disable automatic lock.");
     } finally {
@@ -1354,17 +1358,18 @@ const Dashboard = () => {
     });
   }, [devices, search, deviceFilter]);
 
-  const filteredAutoLockCandidates = autoLockCandidates.filter(item =>
+  const autoLockManagers=[...new Set(autoLockCandidates.map(item=>item.distCoordinatorName||'Unassigned'))].sort((a,b)=>a.localeCompare(b));
+  const filteredAutoLockCandidates = autoLockCandidates.filter(item=>isDistrictCoordinator||!autoLockManager||(item.distCoordinatorName||'Unassigned')===autoLockManager).filter(item => autoLockStatus === "all" || (autoLockStatus === "disabled" ? item.isAutoLockDisabled : !item.isAutoLockDisabled)).filter(item =>
     !devices.some(device => device.deviceId === item.deviceId && device.isActive === false)).filter(item =>
     [item.operatorName, item.operatorId].some(value =>
       String(value || "").toLowerCase().includes(autoLockSearch.trim().toLowerCase())));
 
   const downloadAutoLockExcel = async () => {
-    if (autoLockLoading || autoLockSaving || autoLockExporting || !filteredAutoLockCandidates.length || autoLockReportDate !== autoLockLoadedDate) return;
+    if (autoLockLoading || autoLockSaving || autoLockExporting || !filteredAutoLockCandidates.length || (autoLockReportDate !== autoLockLoadedDate || autoLockToDate !== autoLockLoadedToDate)) return;
     setAutoLockExporting(true);
     try {
       const { autoLockExportOptions, downloadManagementWorkbook } = await import('./managementExcelExport.js');
-      await downloadManagementWorkbook(autoLockExportOptions(filteredAutoLockCandidates, autoLockLoadedDate, autoLockSearch), 'Manage-Auto-Lock_' + autoLockLoadedDate + '.xlsx');
+      await downloadManagementWorkbook(autoLockExportOptions(filteredAutoLockCandidates, autoLockLoadedDate+' to '+autoLockLoadedToDate, autoLockSearch), 'Manage-Auto-Lock_' + autoLockLoadedDate + '.xlsx');
     } catch { setAutoLockError("Unable to download Excel. Please try again."); }
     finally { setAutoLockExporting(false); }
   };
@@ -2348,11 +2353,14 @@ const Dashboard = () => {
             </div>
             <div style={{ display: "flex", alignItems: "end", gap: "12px", margin: "18px 0", flexWrap: "wrap" }}>
               <label>
-                Report date
+                From Date
                 <input type="date" value={autoLockReportDate} onChange={(event) => setAutoLockReportDate(event.target.value)} disabled={autoLockLoading || autoLockSaving} style={{ display: "block", marginTop: "5px", padding: "8px" }} />
               </label>
-              <button type="button" onClick={() => loadAutoLockCandidates(autoLockReportDate)} disabled={autoLockLoading || autoLockSaving || !autoLockReportDate} style={{ padding: "8px 14px" }}>{autoLockLoading ? "Loading..." : "Load"}</button>
-              <button type="button" onClick={downloadAutoLockExcel} disabled={autoLockLoading || autoLockSaving || autoLockExporting || !!autoLockError || !filteredAutoLockCandidates.length || autoLockReportDate !== autoLockLoadedDate} title="Download the displayed operators; load the selected date first" style={{ padding: "8px 14px" }}>{autoLockExporting ? "Preparing Excel..." : "Download Excel"}</button>
+              <label>To Date<input type="date" value={autoLockToDate} min={autoLockReportDate} onChange={e=>setAutoLockToDate(e.target.value)} disabled={autoLockLoading||autoLockSaving} style={{display:'block',marginTop:5,padding:8}}/></label>
+              {!isDistrictCoordinator&&<label>District Manager<select value={autoLockManager} onChange={e=>{setAutoLockManager(e.target.value);setSelectedAutoLockDeviceIds([]);}} disabled={autoLockLoading||autoLockSaving} style={{display:'block',marginTop:5,padding:8,maxWidth:280}}><option value="">All District Managers</option>{autoLockManagers.map(name=><option key={name} value={name}>{name}</option>)}</select></label>}
+              <label>Auto Lock<select value={autoLockStatus} onChange={e=>{setAutoLockStatus(e.target.value);setSelectedAutoLockDeviceIds([]);}} disabled={autoLockSaving} style={{display:'block',marginTop:5,padding:8}}><option value="all">All</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option></select></label>
+              <button type="button" onClick={() => loadAutoLockCandidates(autoLockReportDate,autoLockToDate)} disabled={autoLockLoading || autoLockSaving || !autoLockReportDate || !autoLockToDate || autoLockReportDate>autoLockToDate} style={{ padding: "8px 14px" }}>{autoLockLoading ? "Loading..." : "Load"}</button>
+              <button type="button" onClick={downloadAutoLockExcel} disabled={autoLockLoading || autoLockSaving || autoLockExporting || !!autoLockError || !filteredAutoLockCandidates.length || (autoLockReportDate !== autoLockLoadedDate || autoLockToDate !== autoLockLoadedToDate)} title="Download the displayed operators; load the selected date first" style={{ padding: "8px 14px" }}>{autoLockExporting ? "Preparing Excel..." : "Download Excel"}</button>
               <label>Operator
                 <input type="search" placeholder="Search Operator name or ID" value={autoLockSearch} onChange={event => setAutoLockSearch(event.target.value)} disabled={autoLockSaving} style={{ display: "block", marginTop: 5, padding: 8 }} />
               </label>
@@ -2363,20 +2371,20 @@ const Dashboard = () => {
             <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: "6px", flex: 1, minHeight: 0 }}>
               <table className="device-table" style={{ minWidth: "900px" }}>
                 <thead><tr>
-                  <th><input type="checkbox" checked={filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).length > 0 && filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).every((item) => selectedAutoLockDeviceIds.includes(item.deviceId))} onChange={() => {
-                    const selectableIds = filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).map((item) => item.deviceId);
+                  <th><input type="checkbox" checked={filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).length > 0 && filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).every((item) => selectedAutoLockDeviceIds.includes(autoLockKey(item)))} onChange={() => {
+                    const selectableIds = filteredAutoLockCandidates.filter((item) => !item.isAutoLockDisabled).map(autoLockKey);
                     setSelectedAutoLockDeviceIds((selected) => selectableIds.every(id => selected.includes(id))
                       ? selected.filter(id => !selectableIds.includes(id))
                       : [...new Set([...selected, ...selectableIds])]);
                   }} disabled={autoLockLoading || autoLockSaving || !filteredAutoLockCandidates.some(item => !item.isAutoLockDisabled)} aria-label="Select all visible eligible devices" /></th>
-                  <th>Sl#</th><th>Laptop Name</th><th>Operator ID</th><th>Operator Name</th><th>Dist. Manager Name</th><th>Missing Report</th><th>Auto Lock</th>
+                  <th>Sl#</th><th>Laptop Name</th><th>Operator ID</th><th>Operator Name</th><th>Dist. Manager Name</th><th>Missing Report</th><th>Auto Lock</th><th>Date Range</th>
                 </tr></thead>
                 <tbody>
-                  {autoLockLoading ? <tr><td colSpan="8" className="no-data">Loading...</td></tr> : autoLockCandidates.length === 0 ? <tr><td colSpan="8" className="no-data">No operators need auto-lock management for this date. Operators on holiday are excluded.</td></tr> : filteredAutoLockCandidates.length === 0 ? <tr><td colSpan="8" className="no-data">No operators match your search.</td></tr> : filteredAutoLockCandidates.map((item, index) => {
+                  {autoLockLoading ? <tr><td colSpan="9" className="no-data">Loading...</td></tr> : autoLockCandidates.length === 0 ? <tr><td colSpan="9" className="no-data">No operators need auto-lock management for this date. Operators on holiday are excluded.</td></tr> : filteredAutoLockCandidates.length === 0 ? <tr><td colSpan="9" className="no-data">No operators match your search.</td></tr> : filteredAutoLockCandidates.map((item, index) => {
                     const missingText = item.missingOffGovtMis && item.missingEodMis ? "OFF MIS and EOD MIS" : item.missingOffGovtMis ? "OFF MIS" : "EOD MIS";
-                    return <tr key={item.deviceId} style={{ opacity: item.isAutoLockDisabled ? 0.55 : 1 }}>
-                      <td><input type="checkbox" checked={selectedAutoLockDeviceIds.includes(item.deviceId)} onChange={() => toggleAutoLockDevice(item.deviceId)} disabled={autoLockSaving || item.isAutoLockDisabled} aria-label={`Select ${item.operatorId}`} /></td>
-                      <td>{index + 1}</td><td>{displayValue(item.laptopName)}</td><td>{displayValue(item.operatorId)}</td><td>{displayValue(item.operatorName)}</td><td>{displayValue(item.distCoordinatorName)}</td><td>{missingText}</td><td>{item.isAutoLockDisabled ? "Disabled for this date" : "Enabled"}</td>
+                    return <tr key={autoLockKey(item)} style={{ opacity: item.isAutoLockDisabled ? 0.55 : 1 }}>
+                      <td><input type="checkbox" checked={selectedAutoLockDeviceIds.includes(autoLockKey(item))} onChange={() => toggleAutoLockDevice(autoLockKey(item))} disabled={autoLockSaving || item.isAutoLockDisabled} aria-label={`Select ${item.operatorId}`} /></td>
+                      <td>{index + 1}</td><td>{displayValue(item.laptopName)}</td><td>{displayValue(item.operatorId)}</td><td>{displayValue(item.operatorName)}</td><td>{displayValue(item.distCoordinatorName)}</td><td>{missingText}</td><td>{item.isAutoLockDisabled ? "Disabled for this date" : "Enabled"}</td><td>{item.reportDate} to {item.reportDate}</td>
                     </tr>;
                   })}
                 </tbody>
@@ -2384,7 +2392,7 @@ const Dashboard = () => {
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "18px" }}>
               <button type="button" onClick={() => setShowManageAutoLock(false)} disabled={autoLockSaving}>Close</button>
-              <button type="button" onClick={disableSelectedAutoLocks} disabled={autoLockSaving || !selectedAutoLockDeviceIds.length} style={{ background: "#b91c1c", color: "#fff", border: "none", borderRadius: "5px", padding: "8px 14px", cursor: autoLockSaving ? "wait" : "pointer" }}>{autoLockSaving ? "Disabling..." : "Disable Auto Lock"}</button>
+              <button type="button" onClick={disableSelectedAutoLocks} disabled={autoLockLoading || autoLockSaving || !selectedAutoLockDeviceIds.length || autoLockReportDate!==autoLockLoadedDate || autoLockToDate!==autoLockLoadedToDate} style={{ background: "#b91c1c", color: "#fff", border: "none", borderRadius: "5px", padding: "8px 14px", cursor: autoLockSaving ? "wait" : "pointer" }}>{autoLockSaving ? "Disabling..." : "Disable Auto Lock"}</button>
             </div>
           </div>
         </div>
