@@ -669,7 +669,10 @@ const Dashboard = () => {
       const response = await api.get("devices/auto-lock-management", { params: { fromDate:reportDate||todayIST,toDate:toDate||reportDate||todayIST,dateMode:'lock' } });
       const loadedDate=response.data?.fromDate||response.data?.reportDate||reportDate;
       const loadedTo=response.data?.toDate||loadedDate;
-      setAutoLockCandidates((response.data?.data||[]).filter(item=>!item.isHoliday).map(item=>({...item,reportDate:item.reportDate||loadedDate})));
+      const candidates=(response.data?.data||[]).filter(item=>!item.isHoliday).map(item=>({...item,reportDate:item.reportDate||loadedDate}));
+      const missingByDevice=new Map();
+      for(const item of candidates){if(!missingByDevice.has(item.deviceId))missingByDevice.set(item.deviceId,new Set());missingByDevice.get(item.deviceId).add(item.reportDate);}
+      setAutoLockCandidates(candidates.map(item=>{const missingDates=[...missingByDevice.get(item.deviceId)].sort();return {...item,missingDates,missingFromDate:missingDates[0],missingToDate:missingDates[missingDates.length-1]};}));
       setAutoLockReportDate(loadedDate);setAutoLockToDate(loadedTo);
       setAutoLockLoadedDate(loadedDate);setAutoLockLoadedToDate(loadedTo);
       setSelectedAutoLockDeviceIds([]);
@@ -2386,7 +2389,7 @@ const Dashboard = () => {
                     const missingText = item.missingOffGovtMis && item.missingEodMis ? "OFF MIS and EOD MIS" : item.missingOffGovtMis ? "OFF MIS" : "EOD MIS";
                     return <tr key={autoLockKey(item)} style={{ opacity: item.isAutoLockDisabled ? 0.55 : 1 }}>
                       <td><input type="checkbox" checked={selectedAutoLockDeviceIds.includes(autoLockKey(item))} onChange={() => toggleAutoLockDevice(autoLockKey(item))} disabled={autoLockSaving || item.isAutoLockDisabled} aria-label={`Select ${item.operatorId}`} /></td>
-                      <td>{index + 1}</td><td>{displayValue(item.laptopName)}</td><td>{displayValue(item.operatorId)}</td><td>{displayValue(item.operatorName)}</td><td>{displayValue(item.distCoordinatorName)}</td><td>{missingText}</td><td>{item.isAutoLockDisabled ? "Disabled for this date" : "Enabled"}</td><td>{item.reportDate} to {item.reportDate}</td>
+                      <td>{index + 1}</td><td>{displayValue(item.laptopName)}</td><td>{displayValue(item.operatorId)}</td><td>{displayValue(item.operatorName)}</td><td>{displayValue(item.distCoordinatorName)}</td><td>{missingText}</td><td>{item.isAutoLockDisabled ? "Disabled" : "Enabled"}<small style={{display:'block'}}>For {item.reportDate}</small></td><td style={{whiteSpace:'normal',minWidth:240}}>{item.missingFromDate} to {item.missingToDate}<small style={{display:'block',marginTop:4}}>Missing dates: {item.missingDates?.join(', ')}</small></td>
                     </tr>;
                   })}
                 </tbody>
