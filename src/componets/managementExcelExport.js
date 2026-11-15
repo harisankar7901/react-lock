@@ -43,8 +43,8 @@ export function performanceExportOptions(rows, totals, fromDate, toDate) {
 
 export function autoLockExportOptions(rows, reportDate, search) {
   return {
-    title: 'Manage Auto Lock', subtitle: `Report date: ${reportDate} | Operator search: ${search || 'All'} | Devices: ${rows.length}`,
-    columns: [{title:'Sl#',width:8},{title:'Laptop Name',width:28},{title:'Operator ID'},{title:'Operator Name',width:30},{title:'Dist. Manager Name',width:30},{title:'Missing Report',width:26},{title:'Auto Lock',width:26},{title:'Date Range',width:28}],
+    title: 'Manage Auto Lock', subtitle: `Auto-lock dates: ${reportDate} | Operator search: ${search || 'All'} | Devices: ${rows.length}`,
+    columns: [{title:'Sl#',width:8},{title:'Laptop Name',width:28},{title:'Operator ID'},{title:'Operator Name',width:30},{title:'Dist. Manager Name',width:30},{title:'Missing Report',width:26},{title:'Auto Lock',width:26},{title:'Date Range (Missing Reports)',width:28}],
     rows: rows.map((row,index) => [index+1, String(row.laptopName || '-'), String(row.operatorId ?? ''), String(row.operatorName || '-'), String(row.distCoordinatorName || '-'), row.missingOffGovtMis && row.missingEodMis ? 'OFF MIS and EOD MIS' : row.missingOffGovtMis ? 'OFF MIS' : 'EOD MIS', row.isAutoLockDisabled ? 'Disabled for this date' : 'Enabled', row.reportDate ? row.reportDate+' to '+row.reportDate : reportDate])
   };
 }
