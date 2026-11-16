@@ -18,7 +18,7 @@ export default function WeeklyMismatchRecords({onClose}){
  const managers=[...new Map(weekRows.map(r=>[r.managerId,r.managerName])).entries()];
  const visibleRows=weekRows.filter(r=>!manager||r.managerName.toLowerCase().includes(manager.toLowerCase())||r.managerId.toLowerCase().includes(manager.toLowerCase()));
  return <div className="weekly-mismatch-page" role="dialog" aria-modal="true" aria-labelledby="weekly-title" style={{position:'fixed',inset:0,zIndex:220,background:'#f1f5f9',padding:24,display:'flex',flexDirection:'column',boxSizing:'border-box'}}>
- {showMissingWeekly && <MissingWeeklyReports onClose={()=>setShowMissingWeekly(false)}/>}
+ {showMissingWeekly && <MissingWeeklyReports initialRange={{fromDate,toDate}} onClose={()=>setShowMissingWeekly(false)}/>}
  <header style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><h2 id="weekly-title">Weekly Mismatch Records</h2><button onClick={onClose}>Close</button></header>
  <p>Weekly EOD mismatches and their sync status in daily EOD. Choose a week using the month in From Date, or search a custom date range.</p>
  <form onSubmit={e=>{e.preventDefault();setRange({fromDate,toDate});}} style={{display:'flex',gap:16,flexWrap:'wrap',alignItems:'end',marginBottom:20}}>
