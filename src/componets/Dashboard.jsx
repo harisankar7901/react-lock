@@ -667,13 +667,11 @@ const Dashboard = () => {
     setAutoLockSuccess("");
     try {
       const todayIST=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-      const response = await api.get("devices/auto-lock-management", { params: reportMode ? { fromDate:reportDate||todayIST,toDate:toDate||reportDate||todayIST } : (reportDate ? {reportDate} : {}) });
+      const response = await api.get("devices/auto-lock-management", { params: reportMode ? { fromDate:reportDate||todayIST,toDate:toDate||reportDate||todayIST,excludeSundays:true } : (reportDate ? {reportDate} : {}) });
       const loadedDate=response.data?.fromDate||response.data?.reportDate||reportDate;
       const loadedTo=response.data?.toDate||loadedDate;
       const candidates=(response.data?.data||[]).filter(item=>!item.isHoliday).map(item=>({...item,reportDate:item.reportDate||loadedDate}));
-      const missingByDevice=new Map();
-      for(const item of candidates){if(!missingByDevice.has(item.deviceId))missingByDevice.set(item.deviceId,new Set());missingByDevice.get(item.deviceId).add(item.reportDate);}
-      setAutoLockCandidates(candidates.map(item=>{const missingDates=[...missingByDevice.get(item.deviceId)].sort();return {...item,missingDates,missingFromDate:missingDates[0],missingToDate:missingDates[missingDates.length-1]};}));
+      setAutoLockCandidates(candidates);
       setAutoLockReportDate(loadedDate);setAutoLockToDate(loadedTo);
       setAutoLockLoadedDate(loadedDate);setAutoLockLoadedToDate(loadedTo);
       setSelectedAutoLockDeviceIds([]);
@@ -1380,7 +1378,7 @@ const Dashboard = () => {
     try {
       const { autoLockExportOptions, downloadManagementWorkbook } = await import('./managementExcelExport.js');
       const options=autoLockExportOptions(filteredAutoLockCandidates, lockReasonReport ? autoLockLoadedDate+' to '+autoLockLoadedToDate : autoLockLoadedDate, autoLockSearch);
-      if(lockReasonReport)options.title='LockReason Report';
+      if(lockReasonReport){options.title='LockReason Report';options.columns=options.columns.filter((_,index)=>index!==6);options.rows=options.rows.map(row=>row.filter((_,index)=>index!==6));}
       else {options.subtitle=options.subtitle.replace('Report dates:','Report date:');options.columns=options.columns.slice(0,7);options.rows=options.rows.map(row=>row.slice(0,7));}
       await downloadManagementWorkbook(options, (lockReasonReport?'LockReason-Report_':'Manage-Auto-Lock_') + autoLockLoadedDate + '.xlsx');
     } catch { setAutoLockError("Unable to download Excel. Please try again."); }
@@ -1641,7 +1639,7 @@ const Dashboard = () => {
               >
                 🔒 Manage Auto Lock
               </button>
-              <button onClick={openLockReasonReport} style={{width:"100%",padding:"10px 14px",textAlign:"left",background:"none",border:"none",cursor:"pointer",borderBottom:"1px solid #eee"}}>LockReason Report</button>
+              <button onClick={openLockReasonReport} style={{width:"100%",padding:"10px 14px",textAlign:"left",background:"none",border:"none",cursor:"pointer",borderBottom:"1px solid #eee"}}>Missing Data</button>
               {isTopAdmin && (
                 <button
                   onClick={openInstallerUploadModal}
@@ -2380,7 +2378,7 @@ const Dashboard = () => {
               </label>
               <span style={{ color: "#1e3a5f", fontWeight: 600 }}>{!lockReasonReport&&`${selectedAutoLockDeviceIds.length} selected · `}{filteredAutoLockCandidates.length} shown</span>
             </div>
-            {lockReasonReport&&<p style={{margin:'0 0 12px',color:'#475569'}}>Shows missing reports dated within the selected From Date and To Date. Dates are not shifted to the previous day.</p>}
+            {lockReasonReport&&<p style={{margin:'0 0 12px',color:'#475569'}}>Shows missing reports dated within the selected From Date and To Date. Sundays are excluded. Dates are not shifted to the previous day.</p>}
             {autoLockError && <p role="alert" style={{ color: "#d93025", marginTop: 0 }}>{autoLockError}</p>}
             {autoLockSuccess && <p style={{ color: "#18864b", marginTop: 0 }}>{autoLockSuccess}</p>}
             <div style={{ overflow: "auto", border: "1px solid #e5e7eb", borderRadius: "6px", flex: 1, minHeight: 0 }}>
@@ -2392,14 +2390,14 @@ const Dashboard = () => {
                       ? selected.filter(id => !selectableIds.includes(id))
                       : [...new Set([...selected, ...selectableIds])]);
                   }} disabled={autoLockLoading || autoLockSaving || !filteredAutoLockCandidates.some(item => !item.isAutoLockDisabled)} aria-label="Select all visible eligible devices" /></th>}
-                  <th>Sl#</th><th>Laptop Name</th><th>Operator ID</th><th>Operator Name</th><th>Dist. Manager Name</th><th>Missing Report</th><th>Auto Lock</th>{lockReasonReport&&<th>Date Range (Missing Reports)</th>}
+                  <th>Sl#</th><th>Laptop Name</th><th>Operator ID</th><th>Operator Name</th><th>Dist. Manager Name</th><th>Missing Report</th>{!lockReasonReport&&<th>Auto Lock</th>}{lockReasonReport&&<th>Date Range (Missing Reports)</th>}
                 </tr></thead>
                 <tbody>
-                  {autoLockLoading ? <tr><td colSpan={8} className="no-data">Loading...</td></tr> : autoLockCandidates.length === 0 ? <tr><td colSpan={8} className="no-data">No operators need auto-lock management for these dates. Sundays and operators on holiday are excluded.</td></tr> : filteredAutoLockCandidates.length === 0 ? <tr><td colSpan={8} className="no-data">No operators match your search.</td></tr> : filteredAutoLockCandidates.map((item, index) => {
+                  {autoLockLoading ? <tr><td colSpan={lockReasonReport?7:8} className="no-data">Loading...</td></tr> : autoLockCandidates.length === 0 ? <tr><td colSpan={lockReasonReport?7:8} className="no-data">No operators need auto-lock management for these dates. Sundays and operators on holiday are excluded.</td></tr> : filteredAutoLockCandidates.length === 0 ? <tr><td colSpan={lockReasonReport?7:8} className="no-data">No operators match your search.</td></tr> : filteredAutoLockCandidates.map((item, index) => {
                     const missingText = item.missingOffGovtMis && item.missingEodMis ? "OFF MIS and EOD MIS" : item.missingOffGovtMis ? "OFF MIS" : "EOD MIS";
                     return <tr key={autoLockKey(item)} style={{ opacity: item.isAutoLockDisabled ? 0.55 : 1 }}>
                       {!lockReasonReport&&<td><input type="checkbox" checked={selectedAutoLockDeviceIds.includes(autoLockKey(item))} onChange={() => toggleAutoLockDevice(autoLockKey(item))} disabled={autoLockSaving || item.isAutoLockDisabled} aria-label={`Select ${item.operatorId}`} /></td>}
-                      <td>{index + 1}</td><td>{displayValue(item.laptopName)}</td><td>{displayValue(item.operatorId)}</td><td>{displayValue(item.operatorName)}</td><td>{displayValue(item.distCoordinatorName)}</td><td>{missingText}</td><td>{item.isAutoLockDisabled ? "Disabled" : "Enabled"}<small style={{display:'block'}}>For {item.reportDate}</small></td>{lockReasonReport&&<td style={{whiteSpace:'normal',minWidth:240}}>{item.missingFromDate} to {item.missingToDate}<div style={{marginTop:6}}>{item.missingDates?.map(day=><div key={day} style={{lineHeight:1.7}}>{day}</div>)}</div></td>}
+                      <td>{index + 1}</td><td>{displayValue(item.laptopName)}</td><td>{displayValue(item.operatorId)}</td><td>{displayValue(item.operatorName)}</td><td>{displayValue(item.distCoordinatorName)}</td><td>{missingText}</td>{!lockReasonReport&&<td>{item.isAutoLockDisabled ? "Disabled" : "Enabled"}<small style={{display:'block'}}>For {item.reportDate}</small></td>}{lockReasonReport&&<td style={{whiteSpace:'normal',minWidth:240}}>{item.reportDate}</td>}
                     </tr>;
                   })}
                 </tbody>
