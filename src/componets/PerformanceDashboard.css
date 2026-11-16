@@ -151,3 +151,14 @@
     white-space: nowrap;
   }
 }
+
+/* Keep manager names compact while allowing full names to wrap. */
+.excel-report-table.compact-manager-column th:first-child,
+.excel-report-table.compact-manager-column td:first-child {
+  width: 150px;
+  max-width: 150px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  padding-left: 8px;
+  padding-right: 8px;
+}
