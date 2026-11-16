@@ -1,3 +1,4 @@
+import ManageSoftwareIssue from './ManageSoftwareIssue.jsx';
 import MissingMisReports from './MissingMisReports.jsx';
 import LockHistory from './LockHistory.jsx';
 import UploadOperatorReports from './UploadOperatorReports.jsx';
@@ -85,6 +86,7 @@ const Dashboard = () => {
   const [holidayStatusError, setHolidayStatusError] = useState("");
   const [holidayRefresh, setHolidayRefresh] = useState(0);
   const [holidaySearch, setHolidaySearch] = useState("");
+  const [showSoftwareIssue,setShowSoftwareIssue]=useState(false);
   const [showManageHolidays, setShowManageHolidays] = useState(false);
   const [holidayFromDate, setHolidayFromDate] = useState(getTodayForDateInput);
   const [holidayToDate, setHolidayToDate] = useState(getTodayForDateInput);
@@ -1146,7 +1148,7 @@ const Dashboard = () => {
       setDevices((prevDevices) =>
         prevDevices.map((item) =>
           item._id === device._id
-            ? { ...item, lock: newLockStatus }
+            ? { ...item, lock: newLockStatus, status:newLockStatus, paymentPendingLock:newLockStatus && /^payment pending(?:\s*-|$)/i.test(reason.trim()) }
             : item
         )
       );
@@ -1619,6 +1621,7 @@ const Dashboard = () => {
                   📈 Operator Performance Report
                 </button>
               )}
+              {canManageHolidays&&<button onClick={()=>{setShowDropdown(false);setShowSoftwareIssue(true);}} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:'none',border:0,cursor:'pointer'}}>Manage Software Issue</button>}
               {canManageHolidays && (
                 <button
                   onClick={openManageHolidays}
@@ -1889,7 +1892,7 @@ const Dashboard = () => {
                       />
                     </td>
                     <td>
-                      <div className="device-name">
+                      <div className="device-name" style={device.paymentPendingLock && (device.lock===true||String(device.status).toLowerCase()==='true') ? {color:'#dc2626',fontWeight:700} : undefined}>
                         <span
                           className={`connection-status-dot ${device.connectionStatus === "online" ? "online" : "offline"}`}
                           title={device.connectionStatus === "online" ? "Online" : "Offline"}
@@ -2410,6 +2413,7 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+      {showSoftwareIssue && <ManageSoftwareIssue onClose={()=>setShowSoftwareIssue(false)}/>}
       {showManageHolidays && (
         <div
           className="modal-overlay"

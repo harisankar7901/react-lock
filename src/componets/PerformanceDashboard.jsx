@@ -201,6 +201,7 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
         .map((device) => String(device.operatorId || "").trim())
         .filter(Boolean));
       const totalOperators = operatorIds.size;
+      const softwareDays=performanceHolidayDays(holidaysResponse.data?.softwareIssues||[],fromDate,toDate,true);
       const zeroDays = zeroDataDays(holidaysResponse.data?.zeroData || [], fromDate, toDate);
       const leaveDays = performanceHolidayDays(holidaysResponse.data?.leaves || [], fromDate, toDate, true);
       const holidays = performanceHolidayDays(holidaysResponse.data?.data || [], fromDate, toDate);
@@ -257,6 +258,7 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
           const totalData = operatorList.reduce((sum, operatorId) => sum + (summaryByOperator.get(operatorId)?.totalData || 0), 0);
           const totalCollection = operatorList.reduce((sum, operatorId) => sum + (summaryByOperator.get(operatorId)?.totalAmountCharged || 0), 0);
           const assignedTotalOperators = operatorList.length;
+          const softwareIssueDays=operatorList.reduce((sum,id)=>sum+(softwareDays.get(id)?.size||0),0);
           const zeroData = operatorList.reduce((sum, id) => sum + (zeroDays.get(id)?.size || 0), 0);
           const holidayDays = operatorList.reduce((sum, id) => sum + (leaveDays.get(id)?.size || 0), 0);
           const excludedDays = operatorList.reduce((sum, id) => sum + (holidays.get(id)?.size || 0), 0);
@@ -274,7 +276,7 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
             offGovtMisCount: offMisCount,
             eodMisCount,
             totalOperators: assignedTotalOperators,
-            zeroData, holidayDays, expectedDays, eligibleReports,
+            softwareIssueDays, zeroData, holidayDays, expectedDays, eligibleReports,
             // Use the same percentage formula as Average Completion.
             compliance: expectedDays
               ? (eligibleReports / (2 * expectedDays)) * 100
@@ -330,11 +332,12 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
     offGovtMisCount: sum.offGovtMisCount + row.offGovtMisCount,
     eodMisCount: sum.eodMisCount + row.eodMisCount,
     totalOperators: sum.totalOperators + row.totalOperators,
+    softwareIssueDays: sum.softwareIssueDays + row.softwareIssueDays,
     zeroData: sum.zeroData + row.zeroData,
     holidayDays: sum.holidayDays + row.holidayDays,
     expectedDays: sum.expectedDays + row.expectedDays,
     eligibleReports: sum.eligibleReports + row.eligibleReports,
-  }), { zeroData: 0, holidayDays: 0, expectedDays: 0, eligibleReports: 0, dataCollected: 0, totalCollection: 0, operatorDataSync: 0, offGovtMisCount: 0, eodMisCount: 0, totalOperators: 0 }), [rows]);
+  }), { softwareIssueDays: 0, zeroData: 0, holidayDays: 0, expectedDays: 0, eligibleReports: 0, dataCollected: 0, totalCollection: 0, operatorDataSync: 0, offGovtMisCount: 0, eodMisCount: 0, totalOperators: 0 }), [rows]);
   const selectedWorkingDayCount = daysInRange(fromDate, toDate);
   const compliance = reportTotals.expectedDays
     ? (reportTotals.eligibleReports / (2 * reportTotals.expectedDays)) * 100
@@ -414,9 +417,9 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
           <section className="excel-report-card">
             <div className="excel-report-title"><span>{reportTitle}</span><small>Data from {fromDate} to {toDate}</small></div>
             <div className="excel-report-grid">
-              <div className="excel-table-wrap"><table className="excel-report-table"><thead><tr><th rowSpan="2">{isOperatorReport ? "Operator Name" : "Dist Manager Name"}</th>{!isOperatorReport && <th rowSpan="2">Total Operator</th>}<th rowSpan="2">Total Data</th><th rowSpan="2">Total Collection</th><th colSpan="2">Operator Data Sync</th><th rowSpan="2">Leaves</th><th rowSpan="2" title="Days with Auto Lock disabled for each operator">Zero Data</th><th rowSpan="2">% of Compliance</th></tr><tr><th>OFF Govt. Portal MIS</th><th>EOD MIS Report</th></tr></thead>
-                <tbody>{rows.map((row) => <tr key={row.id}><td>{String(row.name || "-").toUpperCase()}</td>{!isOperatorReport && <td>{row.totalOperators}</td>}<td>{row.dataCollected}</td><td>{money(row.totalCollection)}</td><td>{row.offGovtMisCount}</td><td>{row.eodMisCount}</td><td title="Leave/holiday dates marked in Manage Holiday">{row.holidayDays}</td><td title="Operator-days with Auto Lock disabled">{row.zeroData}</td><td>{row.expectedDays ? row.compliance.toFixed(2) : "N/A (Holiday)"}</td></tr>)}</tbody>
-                <tfoot><tr><td>Grand Total</td>{!isOperatorReport && <td>{reportTotals.totalOperators}</td>}<td>{reportTotals.dataCollected}</td><td>{money(reportTotals.totalCollection)}</td><td>{reportTotals.offGovtMisCount}</td><td>{reportTotals.eodMisCount}</td><td>{reportTotals.holidayDays}</td><td>{reportTotals.zeroData}</td><td>{reportTotals.expectedDays ? compliance.toFixed(2) : "N/A"}</td></tr></tfoot>
+              <div className="excel-table-wrap"><table className="excel-report-table"><thead><tr><th rowSpan="2">{isOperatorReport ? "Operator Name" : "Dist Manager Name"}</th>{!isOperatorReport && <th rowSpan="2">Total Operator</th>}<th rowSpan="2">Total Data</th><th rowSpan="2">Total Collection</th><th colSpan="2">Operator Data Sync</th><th rowSpan="2">Leaves</th><th rowSpan="2">S/W Issue</th><th rowSpan="2" title="Days with Auto Lock disabled for each operator">Zero Data</th><th rowSpan="2">% of Compliance</th></tr><tr><th>OFF Govt. Portal MIS</th><th>EOD MIS Report</th></tr></thead>
+                <tbody>{rows.map((row) => <tr key={row.id}><td>{String(row.name || "-").toUpperCase()}</td>{!isOperatorReport && <td>{row.totalOperators}</td>}<td>{row.dataCollected}</td><td>{money(row.totalCollection)}</td><td>{row.offGovtMisCount}</td><td>{row.eodMisCount}</td><td title="Leave/holiday dates marked in Manage Holiday">{row.holidayDays}</td><td title="Operator-days with an active software issue">{row.softwareIssueDays}</td><td title="Operator-days with Auto Lock disabled">{row.zeroData}</td><td>{row.expectedDays ? row.compliance.toFixed(2) : "N/A (Holiday)"}</td></tr>)}</tbody>
+                <tfoot><tr><td>Grand Total</td>{!isOperatorReport && <td>{reportTotals.totalOperators}</td>}<td>{reportTotals.dataCollected}</td><td>{money(reportTotals.totalCollection)}</td><td>{reportTotals.offGovtMisCount}</td><td>{reportTotals.eodMisCount}</td><td>{reportTotals.holidayDays}</td><td>{reportTotals.softwareIssueDays}</td><td>{reportTotals.zeroData}</td><td>{reportTotals.expectedDays ? compliance.toFixed(2) : "N/A"}</td></tr></tfoot>
               </table></div>
               <div className="excel-performance-side">
                 <div className="excel-performance-side-title"><span>Performance by {groupLabel}</span></div>
