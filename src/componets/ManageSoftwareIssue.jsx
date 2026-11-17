@@ -2,7 +2,7 @@ import React,{useEffect,useState} from 'react';
 import api from '../api/api.js';
 import './WeeklyMismatchRecords.css';
 const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-const labels={aadhaar:'Aadhaar Software Issue',off:'OFF Portal issue',both:'Both software issues'};
+const labels={aadhaar:'Aadhaar Software Issue',off:'OFF Portal issue',both:'Both software issues',l2:'L2 issue'};
 export default function ManageSoftwareIssue({onClose}){
  const [from,setFrom]=useState(today),[to,setTo]=useState(today),[type,setType]=useState('aadhaar'),[search,setSearch]=useState(''),[selected,setSelected]=useState([]),[devices,setDevices]=useState([]),[issues,setIssues]=useState([]),[busy,setBusy]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(''),[success,setSuccess]=useState(''),[refresh,setRefresh]=useState(0);
  useEffect(()=>{const c=new AbortController();setSelected([]);setDevices([]);setIssues([]);setError('');if(!from||!to||from>to){setBusy(false);return()=>c.abort();}setBusy(true);api.get('devices/software-issues',{params:{fromDate:from,toDate:to},signal:c.signal}).then(({data})=>{if(!c.signal.aborted){setDevices(data.devices||[]);setIssues(data.data||[]);}}).catch(e=>{if(!c.signal.aborted)setError(e.response?.data?.message||'Unable to load software issues.');}).finally(()=>{if(!c.signal.aborted)setBusy(false);});return()=>c.abort();},[from,to,refresh]);
