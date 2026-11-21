@@ -3,7 +3,7 @@ import MissingMisReports from './MissingMisReports.jsx';
 import LockHistory from './LockHistory.jsx';
 import UploadOperatorReports from './UploadOperatorReports.jsx';
 import WeeklyMismatchRecords from './WeeklyMismatchRecords.jsx';
-import ConfigureSettings from './ConfigureSettings.jsx';
+import SettingsMenu from './SettingsMenu.jsx';
 import UninstallList from './UninstallList.jsx';
 import './MisReports.css';
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -2139,7 +2139,7 @@ const Dashboard = () => {
           </div>
         </div>
       )}
-      {role === "superAdmin" && showConfigureSettings && <ConfigureSettings onClose={()=>setShowConfigureSettings(false)} />}
+      {role === "superAdmin" && showConfigureSettings && <SettingsMenu onClose={()=>setShowConfigureSettings(false)} />}
       {showWeeklyMismatch && <WeeklyMismatchRecords onClose={()=>setShowWeeklyMismatch(false)}/>}
       {showLockHistory && <LockHistory onClose={()=>setShowLockHistory(false)}/> }
 

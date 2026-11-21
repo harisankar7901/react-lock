@@ -170,7 +170,7 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
     setKpiError("");
 
     Promise.all([
-      api.get("devices", { signal: controller.signal }),
+      api.get("devices", { params: { reportView: true }, signal: controller.signal }),
       api.get("devices/reports/zip-enrolment-summary", {
         params: { fromDate, toDate },
         signal: controller.signal,
