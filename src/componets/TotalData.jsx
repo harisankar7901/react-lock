@@ -1,0 +1,71 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import api from '../api/api.js';
+import './TotalData.css';
+
+const todayIST = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+const number = value => Number(value) || 0;
+const display = value => value.toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+export default function TotalData({ onClose }) {
+  const [range, setRange] = useState(() => ({ fromDate: todayIST(), toDate: todayIST() }));
+  const [query, setQuery] = useState(range);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true); setError(''); setRows([]);
+    Promise.all([
+      api.get('devices', { params: { reportView: true }, signal: controller.signal }),
+      api.get('devices/reports/zip-enrolment-summary', { params: query, signal: controller.signal })
+    ]).then(([devices, summary]) => {
+      if (controller.signal.aborted) return;
+      const operators = new Map();
+      for (const device of devices.data?.data || []) {
+        const id = String(device.operatorId || '').trim();
+        if (!id || device.isActive === false || device.replacedByDeviceId || operators.has(id)) continue;
+        operators.set(id, { id, name: device.operatorName || id, manager: device.distCoordinatorName || '—', total: 0, collection: 0 });
+      }
+      for (const record of summary.data?.data || []) {
+        const row = operators.get(String(record.operatorId || '').trim());
+        if (!row) continue;
+        row.total += number(record.totalData);
+        row.collection += number(record.totalAmountCharged);
+      }
+      setRows([...operators.values()].sort((a, b) => a.manager.localeCompare(b.manager) || a.name.localeCompare(b.name)));
+    }).catch(err => {
+      if (!controller.signal.aborted) setError(err.response?.data?.message || 'Unable to load Total Data. Please try again.');
+    }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [query]);
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, []);
+  const totals = useMemo(() => rows.reduce((sum, row) => ({ total: sum.total + row.total, collection: sum.collection + row.collection }), { total: 0, collection: 0 }), [rows]);
+  const search = event => {
+    event.preventDefault();
+    if (!range.fromDate || !range.toDate || range.fromDate > range.toDate) {
+      setError('Choose a valid date range. From Date must be on or before To Date.'); return;
+    }
+    setQuery({ ...range });
+  };
+  return <section className="total-data-view" role="dialog" aria-modal="true" aria-labelledby="total-data-title">
+    <header><div><h2 id="total-data-title">Total Data</h2><p>EOD totals by report date · India Standard Time (IST)</p></div><button type="button" onClick={onClose}>Close</button></header>
+    <form className="total-data-toolbar" onSubmit={search}>
+      <label>From Date<input type="date" required value={range.fromDate} onChange={e => setRange({ ...range, fromDate: e.target.value })} /></label>
+      <label>To Date<input type="date" required min={range.fromDate} value={range.toDate} onChange={e => setRange({ ...range, toDate: e.target.value })} /></label>
+      <button type="submit">Search</button>
+      <button type="button" onClick={() => { const next = { fromDate: todayIST(), toDate: todayIST() }; setRange(next); setQuery(next); }}>Today</button>
+      <span>{query.fromDate} to {query.toDate}</span>
+    </form>
+    {error && <p role="alert" className="total-data-error">{error}</p>}
+    <div className="total-data-table" aria-busy={loading}>
+      <table><thead><tr><th>Operator Name</th><th>Dist Manager Name</th><th>Total Data (EOD)</th><th>Total Collection (₹)</th></tr></thead>
+        <tbody>{loading ? <tr><td colSpan="4">Loading…</td></tr> : rows.length ? rows.map(row => <tr key={row.id}><td>{row.name}</td><td>{row.manager}</td><td>{display(row.total)}</td><td>{display(row.collection)}</td></tr>) : <tr><td colSpan="4">{error ? 'Report unavailable.' : 'No operators found.'}</td></tr>}</tbody>
+        {!loading && !error && rows.length > 0 && <tfoot><tr><th colSpan="2">Grand Total</th><td>{display(totals.total)}</td><td>{display(totals.collection)}</td></tr></tfoot>}
+      </table>
+    </div>
+  </section>;
+}

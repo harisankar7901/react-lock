@@ -1,3 +1,4 @@
+import TotalData from './TotalData.jsx';
 import ReplaceDeviceRegistration from './ReplaceDeviceRegistration.jsx';
 import ManageSoftwareIssue from './ManageSoftwareIssue.jsx';
 import MissingMisReports from './MissingMisReports.jsx';
@@ -37,6 +38,7 @@ const UNLOCK_REASON_OPTIONS = [
   "Issue Resolved"
 ];
 const Dashboard = () => {
+  const [showTotalData,setShowTotalData]=useState(false);
   const [replacementRequest,setReplacementRequest]=useState(null);
   const [uploadReportDevice,setUploadReportDevice]=useState(null);
   const [showWeeklyMismatch,setShowWeeklyMismatch]=useState(false);
@@ -1544,6 +1546,7 @@ const Dashboard = () => {
               >
                 ➕ Add Dist Manager
               </button>
+              <button onClick={()=>{setShowDropdown(false);setShowTotalData(true);}} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:'none',border:'none',borderBottom:'1px solid #eee',cursor:'pointer'}}>Total Data</button>
               {role === "superAdmin" && <button onClick={()=>{setShowDropdown(false);setShowConfigureSettings(true);}} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:'none',border:'none',borderBottom:'1px solid #eee',cursor:'pointer'}}>⚙️ Configure Settings</button>}
               {(role === 'admin' || isTopAdmin || isDistrictCoordinator) && <button onClick={()=>{setShowDropdown(false);setShowWeeklyMismatch(true);}} style={{width:'100%',padding:'10px 14px',textAlign:'left',background:'none',border:'none',borderBottom:'1px solid #eee',cursor:'pointer'}}>Weekly Mismatch Records</button>}
               {isTopAdmin && (
@@ -2144,6 +2147,7 @@ const Dashboard = () => {
         </div>
       )}
       {role === "superAdmin" && showConfigureSettings && <SettingsMenu onClose={()=>setShowConfigureSettings(false)} />}
+      {showTotalData && <TotalData onClose={()=>setShowTotalData(false)}/>}
       {showWeeklyMismatch && <WeeklyMismatchRecords onClose={()=>setShowWeeklyMismatch(false)}/>}
       {showLockHistory && <LockHistory onClose={()=>setShowLockHistory(false)}/> }
 
