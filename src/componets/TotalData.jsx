@@ -10,6 +10,8 @@ export default function TotalData({ onClose }) {
   const [range, setRange] = useState(() => ({ fromDate: todayIST(), toDate: todayIST() }));
   const [query, setQuery] = useState(range);
   const [rows, setRows] = useState([]);
+  const [manager, setManager] = useState('');
+  const [operatorSearch, setOperatorSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -43,7 +45,12 @@ export default function TotalData({ onClose }) {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = previous; };
   }, []);
-  const totals = useMemo(() => rows.reduce((sum, row) => ({ total: sum.total + row.total, collection: sum.collection + row.collection }), { total: 0, collection: 0 }), [rows]);
+  const managers = useMemo(() => [...new Set(rows.map(row => row.manager))].sort((a, b) => a.localeCompare(b)), [rows]);
+  const filteredRows = useMemo(() => {
+    const term = operatorSearch.trim().toLowerCase();
+    return rows.filter(row => (!manager || row.manager === manager) && (!term || row.name.toLowerCase().includes(term) || row.id.toLowerCase().includes(term)));
+  }, [rows, manager, operatorSearch]);
+  const totals = useMemo(() => filteredRows.reduce((sum, row) => ({ total: sum.total + row.total, collection: sum.collection + row.collection }), { total: 0, collection: 0 }), [filteredRows]);
   const search = event => {
     event.preventDefault();
     if (!range.fromDate || !range.toDate || range.fromDate > range.toDate) {
@@ -56,6 +63,8 @@ export default function TotalData({ onClose }) {
     <form className="total-data-toolbar" onSubmit={search}>
       <label>From Date<input type="date" required value={range.fromDate} onChange={e => setRange({ ...range, fromDate: e.target.value })} /></label>
       <label>To Date<input type="date" required min={range.fromDate} value={range.toDate} onChange={e => setRange({ ...range, toDate: e.target.value })} /></label>
+      <label>Dist Manager<select value={manager} onChange={e => setManager(e.target.value)}><option value="">All District Managers</option>{manager && !managers.includes(manager) && <option value={manager}>{manager}</option>}{managers.map(name => <option key={name} value={name}>{name}</option>)}</select></label>
+      <label>Operator<input type="search" placeholder="Operator name or ID" value={operatorSearch} onChange={e => setOperatorSearch(e.target.value)} /></label>
       <button type="submit">Search</button>
       <button type="button" onClick={() => { const next = { fromDate: todayIST(), toDate: todayIST() }; setRange(next); setQuery(next); }}>Today</button>
       <span>{query.fromDate} to {query.toDate}</span>
@@ -63,8 +72,8 @@ export default function TotalData({ onClose }) {
     {error && <p role="alert" className="total-data-error">{error}</p>}
     <div className="total-data-table" aria-busy={loading}>
       <table><thead><tr><th>Operator Name</th><th>Dist Manager Name</th><th>Total Data (EOD)</th><th>Total Collection (₹)</th></tr></thead>
-        <tbody>{loading ? <tr><td colSpan="4">Loading…</td></tr> : rows.length ? rows.map(row => <tr key={row.id}><td>{row.name}</td><td>{row.manager}</td><td>{display(row.total)}</td><td>{display(row.collection)}</td></tr>) : <tr><td colSpan="4">{error ? 'Report unavailable.' : 'No operators found.'}</td></tr>}</tbody>
-        {!loading && !error && rows.length > 0 && <tfoot><tr><th colSpan="2">Grand Total</th><td>{display(totals.total)}</td><td>{display(totals.collection)}</td></tr></tfoot>}
+        <tbody>{loading ? <tr><td colSpan="4">Loading…</td></tr> : filteredRows.length ? filteredRows.map(row => <tr key={row.id}><td>{row.name}</td><td>{row.manager}</td><td>{display(row.total)}</td><td>{display(row.collection)}</td></tr>) : <tr><td colSpan="4">{error ? 'Report unavailable.' : 'No operators match the selected filters.'}</td></tr>}</tbody>
+        {!loading && !error && filteredRows.length > 0 && <tfoot><tr><th colSpan="2">Grand Total</th><td>{display(totals.total)}</td><td>{display(totals.collection)}</td></tr></tfoot>}
       </table>
     </div>
   </section>;
