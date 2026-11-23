@@ -1,3 +1,4 @@
+import ReplaceDeviceRegistration from './ReplaceDeviceRegistration.jsx';
 import ManageSoftwareIssue from './ManageSoftwareIssue.jsx';
 import MissingMisReports from './MissingMisReports.jsx';
 import LockHistory from './LockHistory.jsx';
@@ -36,6 +37,7 @@ const UNLOCK_REASON_OPTIONS = [
   "Issue Resolved"
 ];
 const Dashboard = () => {
+  const [replacementRequest,setReplacementRequest]=useState(null);
   const [uploadReportDevice,setUploadReportDevice]=useState(null);
   const [showWeeklyMismatch,setShowWeeklyMismatch]=useState(false);
   const [showConfigureSettings,setShowConfigureSettings]=useState(false);
@@ -1321,7 +1323,8 @@ const Dashboard = () => {
       closeEditModal();
     } catch (error) {
       console.error("Update device details error:", error);
-      alert("Unable to update device details");
+      if(error.response?.data?.code==='DEVICE_REPLACEMENT_REQUIRED' && ['admin','superAdmin','topAdmin'].includes(role)) setReplacementRequest(error.response.data);
+      else alert(error.response?.data?.message || "Unable to update device details");
     } finally {
       setSavingEdit(false);
     }
@@ -1473,6 +1476,7 @@ const Dashboard = () => {
 
   return (
     <div className="dashboard">
+      {replacementRequest&&<ReplaceDeviceRegistration request={replacementRequest} onClose={()=>setReplacementRequest(null)} onDone={result=>{setDevices(items=>items.filter(item=>item.deviceId!==result.replacedDeviceId).map(item=>item.deviceId===result.data.deviceId?{...item,...result.data}:item));setReplacementRequest(null);closeEditModal();}}/>}
 
       {/* Header */}
       <div
