@@ -1,3 +1,4 @@
+import TotalData from './TotalData.jsx';
 import { performanceHolidayDays, withoutHolidayReports, zeroDataDays } from "./performanceHolidays.js";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from "../api/api.js";
@@ -92,6 +93,8 @@ function getActiveManagerForDevice(device, managers) {
 }
 
 export default function PerformanceDashboard({ onClose, onLogout, reportType = "district" }) {
+  const [showTotalData, setShowTotalData] = useState(false);
+  const [showReportMenu, setShowReportMenu] = useState(false);
   const isOperatorReport = reportType === "operator";
   const reportTitle = isOperatorReport ? "Operator Performance Report" : "District Manager Performance Report";
   const groupLabel = isOperatorReport ? "Operator" : "District Manager";
@@ -400,6 +403,12 @@ export default function PerformanceDashboard({ onClose, onLogout, reportType = "
             </>}
             <button type="button" onClick={toggleFullscreen}>{isFullscreen ? "Exit full screen" : "Full screen"}</button>
             {!isOperatorReport && <button type="button" onClick={downloadPerformanceExcel} disabled={!liveKpis || !!kpiError || !rows.length || exporting}>{exporting ? "Preparing Excel..." : "Download Excel"}</button>}
+            <div style={{position:'relative'}}>
+              <button type="button" aria-expanded={showReportMenu} onClick={() => setShowReportMenu(value => !value)}>Menu</button>
+              {showReportMenu && <div style={{position:'absolute',right:0,top:'100%',zIndex:20,minWidth:180,padding:6,background:'#fff',border:'1px solid #cbd5e1',borderRadius:7,boxShadow:'0 4px 16px #0002'}}>
+                <button type="button" onClick={() => { setShowReportMenu(false); setShowTotalData(true); }} style={{width:'100%',textAlign:'left',color:'#183653',background:'#fff'}}>Operator Total Data</button>
+              </div>}
+            </div>
             {onClose && <button type="button" onClick={onClose}>Close</button>}
             {onLogout && <button type="button" onClick={onLogout}>Logout</button>}
           </div>
